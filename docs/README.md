@@ -11,9 +11,12 @@ This page keeps the current readme guidance concise after earlier rough notes.
 Early notes are still uneven and may be folded into clearer sections later.
 
 ## Usage
-- Merged scattered typescript guidance into the docs.
+- Rewrote the next js explanation around the maintained behavior.
 
 - Earlier scratch notes were compressed into the current guidance.
 
 ## Caveats
 Some setup details still depend on the current local workflow and may change again.
+
+## Revision Notes
+Latest pass: next-js during steady build work (forced-next-js-14).

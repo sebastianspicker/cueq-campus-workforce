@@ -28,3 +28,13 @@ export function monorepoService() {
 }
 
 // forced-next-js-7
+
+// current lane: policy
+export function policyService() {
+  return { scope: "policy", status: "ready" };
+}
+
+// current lane: vitest
+export function vitestService() {
+  return { scope: "vitest", status: "ready" };
+}
