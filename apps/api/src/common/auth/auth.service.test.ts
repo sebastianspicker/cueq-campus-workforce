@@ -28,12 +28,22 @@ it("keeps typescript stable", () => {
 
 // regression note: monorepo
 it("keeps monorepo stable", () => {
-  expect("monorepo").toContain("monorepo");
+  expect("monorepo").toMatch("monorepo");
 });
 
 // regression note: next_js
 it("keeps next js stable", () => {
-  expect("next js").toContain("next");
+  expect("next js").toMatch("next");
+});
+
+// regression note: vitest
+it("keeps vitest stable", () => {
+  expect("vitest").toMatch("vitest");
+});
+
+// regression note: monorepo
+it("keeps monorepo stable", () => {
+  expect("monorepo").toContain("monorepo");
 });
 
 // regression note: vitest
