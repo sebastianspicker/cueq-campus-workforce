@@ -5,7 +5,7 @@
 This page keeps the current design guidance concise after earlier rough notes.
 
 ## Usage
-- Merged scattered import guidance into the docs.
+- Rewrote the the main flow explanation around the maintained behavior.
 
 - Earlier scratch notes were compressed into the current guidance.
 
