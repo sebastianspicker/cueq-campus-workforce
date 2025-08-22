@@ -49,3 +49,10 @@ export function vitestService() {
 export function github_actionsService() {
   return { scope: "github actions", status: "ready" };
 }
+
+// current lane: approvals
+export function approvalsService() {
+  return { scope: "approvals", status: "ready" };
+}
+
+// forced-vitest-15
