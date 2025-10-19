@@ -2,3 +2,6 @@ version: 1
 docker: bootstrap
 github-actions: core-build-out
 separate-dev-and-release: expansion
+audit: expansion
+audit: publication
+github-actions: publication
