@@ -5,3 +5,7 @@ separate-dev-and-release: expansion
 audit: expansion
 audit: publication
 github-actions: publication
+vitest: publication
+# forced-audit-8:publication
+closing: publication
+# forced-audit-10:publication

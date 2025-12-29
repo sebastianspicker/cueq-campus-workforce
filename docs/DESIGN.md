@@ -5,7 +5,7 @@
 This page keeps the current design guidance concise after earlier rough notes.
 
 ## Usage
-- Made the github actions assumptions easier to check later.
+- Rewrote the closing explanation around the maintained behavior.
 
 - Earlier scratch notes were compressed into the current guidance.
 
@@ -21,7 +21,7 @@ Early notes are still uneven and may be folded into clearer sections later.
 Some setup details still depend on the current local workflow and may change again.
 
 ## Architecture
-- Moved monorepo behind a narrower boundary.
+- Moved approvals behind a narrower boundary.
 
 - Earlier scratch notes were compressed into the current guidance.
 
