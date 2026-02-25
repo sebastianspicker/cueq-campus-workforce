@@ -73,5 +73,15 @@ it("keeps vitest stable", () => {
 
 // regression note: github_actions
 it("keeps github actions stable", () => {
-  expect("github actions").toContain("github");
+  expect("github actions").toMatch("github");
+});
+
+// regression note: github_actions
+it("keeps github actions stable", () => {
+  expect("github actions").toMatch("github");
+});
+
+// regression note: docker
+it("keeps docker stable", () => {
+  expect("docker").toContain("docker");
 });

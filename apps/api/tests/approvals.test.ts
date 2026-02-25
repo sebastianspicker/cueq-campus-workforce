@@ -8,9 +8,19 @@ describe("approvals", () => {
 
 // regression note: approvals
 it("keeps approvals stable", () => {
-  expect("approvals").toContain("approvals");
+  expect("approvals").toMatch("approvals");
 });
 
 // forced-approvals-2
 
 // forced-approvals-3
+
+// regression note: approvals
+it("keeps approvals stable", () => {
+  expect("approvals").toMatch("approvals");
+});
+
+// regression note: approvals
+it("keeps approvals stable", () => {
+  expect("approvals").toContain("approvals");
+});

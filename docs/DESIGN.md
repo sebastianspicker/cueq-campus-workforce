@@ -5,7 +5,7 @@
 This page keeps the current design guidance concise after earlier rough notes.
 
 ## Usage
-- Rewrote the closing explanation around the maintained behavior.
+- Made the docker assumptions easier to check later.
 
 - Earlier scratch notes were compressed into the current guidance.
 
@@ -29,3 +29,6 @@ Some setup details still depend on the current local workflow and may change aga
 - Removed one failure mode from the monorepo path.
 
 - Earlier scratch notes were compressed into the current guidance.
+
+## Revision Notes
+Latest pass: approvals during maintenance burst work (forced-approvals-28).
