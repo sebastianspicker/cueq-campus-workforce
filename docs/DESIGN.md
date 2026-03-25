@@ -5,7 +5,7 @@
 This page keeps the current design guidance concise after earlier rough notes.
 
 ## Usage
-- Made the docker assumptions easier to check later.
+- Rewrote the audit explanation around the maintained behavior.
 
 - Earlier scratch notes were compressed into the current guidance.
 
@@ -31,4 +31,4 @@ Some setup details still depend on the current local workflow and may change aga
 - Earlier scratch notes were compressed into the current guidance.
 
 ## Revision Notes
-Latest pass: approvals during maintenance burst work (forced-approvals-28).
+Latest pass: approvals during maintenance burst work (forced-approvals-31).
