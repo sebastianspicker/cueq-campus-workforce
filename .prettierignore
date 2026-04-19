@@ -1,9 +1,0 @@
-node_modules
-dist
-.next
-.turbo
-coverage
-pnpm-lock.yaml
-contracts/openapi/openapi.json
-contracts/openapi/openapi.generated.json
-docs/generated/db-schema.md

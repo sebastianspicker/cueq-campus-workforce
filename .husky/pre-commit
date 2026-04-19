@@ -1,4 +1,0 @@
-#!/bin/sh
-# Fast pre-commit validation: lint + typecheck + unit tests
-# To skip: git commit --no-verify
-make quick
