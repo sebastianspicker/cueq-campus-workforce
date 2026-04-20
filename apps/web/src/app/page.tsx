@@ -1,7 +1,8 @@
-export function WebView(): JSX.Element {
-  return <div>web</div>;
-}
+import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
 
-export function WebPanel(): JSX.Element {
-  return <section>web</section>;
+export default async function Home() {
+  const cookieStore = await cookies();
+  const locale = cookieStore.get('NEXT_LOCALE')?.value === 'en' ? 'en' : 'de';
+  redirect(`/${locale}/dashboard`);
 }
