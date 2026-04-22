@@ -26,14 +26,14 @@ fi
 echo "🔧 Generating Prisma client..."
 run_pnpm db:generate
 
-echo "🗄️  Applying migrations to database..."
-if ! run_pnpm --filter @cueq/database db:migrate:deploy; then
+echo "🗄️  Pushing schema to database..."
+if ! run_pnpm db:push; then
   if [[ "${STARTED_DOCKER}" == "1" ]]; then
-    echo "⚠️ Database migration failed. Recreating local postgres volume and retrying once..."
+    echo "⚠️ Database push failed. Recreating local postgres volume and retrying once..."
     ${COMPOSE_CMD} down -v
     ${COMPOSE_CMD} up -d
     sleep 3
-    run_pnpm --filter @cueq/database db:migrate:deploy
+    run_pnpm db:push
   else
     exit 1
   fi

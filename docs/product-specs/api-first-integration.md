@@ -33,12 +33,14 @@ OpenAPI snapshot comparison is implemented in `scripts/openapi-check.sh` and enf
 
 CueQ will emit domain events for key state changes, enabling downstream integrations:
 
-| Event                | Trigger                  | Payload                                          |
-| -------------------- | ------------------------ | ------------------------------------------------ |
-| `booking.created`    | New time booking         | `{ personId, timeTypeCode, source }`             |
-| `closing.completed`  | Monthly close finalized  | `{ closingPeriodId, organizationUnitId, month }` |
-| `export.ready`       | Payroll export generated | `{ exportRunId, format, checksum }`              |
-| `violation.detected` | Policy violation found   | `{ violations, closingPeriodId }`                |
+| Event                | Trigger                  | Payload                                             |
+| -------------------- | ------------------------ | --------------------------------------------------- |
+| `leave.approved`     | Leave request approved   | `{ absenceId, personId, type, startDate, endDate }` |
+| `closing.completed`  | Monthly close finalized  | `{ closingPeriodId, ouId, period, status }`         |
+| `export.ready`       | Payroll export generated | `{ exportRunId, format, recordCount, checksum }`    |
+| `booking.created`    | New time booking         | `{ bookingId, personId, timeType, source }`         |
+| `roster.published`   | Shift plan published     | `{ rosterId, ouId, period }`                        |
+| `violation.detected` | Policy violation found   | `{ ruleId, personId, severity, message }`           |
 
 ### Event Envelope Schema
 
@@ -49,13 +51,11 @@ CueQ will emit domain events for key state changes, enabling downstream integrat
   timestamp: string; // ISO 8601
   version: number; // Schema version
   source: string; // "cueq-api"
-  aggregateType: string;
-  aggregateId: string;
   payload: Record<string, unknown>;
 }
 ```
 
-Webhook endpoints currently support unsigned delivery only. Secret-backed signing is intentionally not exposed until a real secret-resolution and signing flow exists.
+> **Note**: Webhook delivery is Phase 2+. The event schema and documentation are defined now to guide API design.
 
 ## 4. Terminal Gateway
 

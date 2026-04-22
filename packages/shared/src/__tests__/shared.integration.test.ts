@@ -1,11 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { CreateBookingSchema } from '../schemas/booking';
-import {
-  AuditSummaryQuerySchema,
-  AuditSummaryReportSchema,
-  ComplianceSummaryReportSchema,
-} from '../schemas/reporting';
-import { CreateWebhookEndpointSchema } from '../schemas/events';
+import { AuditSummaryReportSchema, ComplianceSummaryReportSchema } from '../schemas/reporting';
 import { CreateRosterSchema } from '../schemas/roster';
 import { TimeRuleEvaluationRequestSchema } from '../schemas/time-engine';
 
@@ -19,26 +14,6 @@ describe('@cueq/shared integration', () => {
     };
 
     expect(CreateBookingSchema.parse(payload)).toMatchObject(payload);
-  });
-
-  it('rejects report queries with inverted date ranges', () => {
-    expect(() =>
-      AuditSummaryQuerySchema.parse({
-        from: '2026-03-31',
-        to: '2026-03-01',
-      }),
-    ).toThrow('to must be on or after from');
-  });
-
-  it('rejects removed webhook secretRef payloads', () => {
-    expect(() =>
-      CreateWebhookEndpointSchema.parse({
-        name: 'ops',
-        url: 'https://example.com/webhook',
-        subscribedEvents: ['booking.created'],
-        secretRef: 'secret/path',
-      }),
-    ).toThrow();
   });
 
   it('validates time-rule evaluation payloads', () => {

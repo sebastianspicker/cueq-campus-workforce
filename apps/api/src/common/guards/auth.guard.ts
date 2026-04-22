@@ -1,10 +1,8 @@
 import type { CanActivate, ExecutionContext } from '@nestjs/common';
-import { ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import type { AuthService } from '../auth/auth.service';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
-import type { PrismaService } from '../../persistence/prisma.service';
-import { resolveAuthenticatedPerson } from '../auth/resolve-authenticated-person';
 
 const MAX_BEARER_TOKEN_LENGTH = 4096;
 const CONTROL_CHAR_PATTERN = /[\u0000-\u001f\u007f]/u;
@@ -14,7 +12,6 @@ export class AuthGuard implements CanActivate {
   constructor(
     private readonly reflector: Reflector,
     private readonly authService: AuthService,
-    private readonly prisma: PrismaService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -56,26 +53,7 @@ export class AuthGuard implements CanActivate {
       throw new UnauthorizedException('Bearer token is malformed.');
     }
 
-    const verifiedIdentity = await this.authService.verifyToken(token);
-
-    try {
-      const person = await resolveAuthenticatedPerson(this.prisma, verifiedIdentity);
-      request.user = {
-        ...verifiedIdentity,
-        personId: person.id,
-        role: person.role,
-        organizationUnitId: person.organizationUnitId,
-      };
-    } catch (error) {
-      if (error instanceof ForbiddenException) {
-        throw error;
-      }
-
-      throw new UnauthorizedException(
-        error instanceof Error ? error.message : 'Authenticated person could not be resolved.',
-      );
-    }
-
+    request.user = await this.authService.verifyToken(token);
     return true;
   }
 }

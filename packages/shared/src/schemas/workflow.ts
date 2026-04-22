@@ -72,14 +72,6 @@ export const WorkflowDecisionCommandSchema = z
       });
     }
 
-    if (value.action && value.decision) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'action and decision cannot be provided together',
-        path: ['decision'],
-      });
-    }
-
     if (value.action === 'DELEGATE' && !value.delegateToId) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -214,14 +206,6 @@ export const WorkflowDecisionBodySchema = z
         code: z.ZodIssueCode.custom,
         message: 'action or decision is required',
         path: ['action'],
-      });
-    }
-
-    if (value.action && value.decision) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'action and decision cannot be provided together',
-        path: ['decision'],
       });
     }
 

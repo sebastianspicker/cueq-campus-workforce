@@ -4,6 +4,7 @@ import type { INestApplication } from '@nestjs/common';
 import { createTestApp, seedPhase2Data, TOKENS } from '../test-helpers';
 import { SEED_IDS } from '../../src/test-utils/seed-ids';
 
+
 const TERMINAL_TOKEN = process.env.TERMINAL_GATEWAY_TOKEN ?? 'dev-terminal-token';
 
 /**
@@ -364,8 +365,8 @@ describe('Terminal gateway edge cases (P6.2)', () => {
         .send({
           personId: SEED_IDS.personEmployee,
           type: 'ANNUAL_LEAVE',
-          startDate: '2026-04-24',
-          endDate: '2026-04-25',
+          startDate: '2026-04-10',
+          endDate: '2026-04-11',
         });
       expect(absence.status).toBe(201);
 
@@ -392,8 +393,8 @@ describe('Terminal gateway edge cases (P6.2)', () => {
             {
               personId: SEED_IDS.personEmployee,
               timeTypeCode: 'WORK',
-              startTime: '2026-04-24T08:00:00.000Z',
-              endTime: '2026-04-24T16:00:00.000Z',
+              startTime: '2026-04-10T08:00:00.000Z',
+              endTime: '2026-04-10T16:00:00.000Z',
             },
           ],
         });

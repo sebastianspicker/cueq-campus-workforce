@@ -5,9 +5,7 @@
     "id": {
       "type": "string",
       "description": "CUID identifier",
-      "minLength": 25,
-      "maxLength": 25,
-      "pattern": "^c[a-z0-9]{24}$"
+      "minLength": 8
     },
     "dateTime": {
       "type": "string",

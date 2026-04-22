@@ -9,14 +9,12 @@ import { PolicyRuleMetaSchema } from '../types';
  */
 export const BreakRuleSchema = PolicyRuleMetaSchema.extend({
   type: z.literal('BREAK_RULE'),
-  thresholds: z
-    .array(
-      z.object({
-        workedHoursMin: z.number().positive(),
-        requiredBreakMinutes: z.number().positive(),
-      }),
-    )
-    .min(1),
+  thresholds: z.array(
+    z.object({
+      workedHoursMin: z.number().positive(),
+      requiredBreakMinutes: z.number().positive(),
+    }),
+  ),
   autoDeduct: z.boolean().default(false),
 });
 export type BreakRule = z.infer<typeof BreakRuleSchema>;

@@ -36,65 +36,37 @@ export function calculateFlextimeWeek(
     input.bookings.reduce((sum, booking) => sum + booking.workedHours, 0),
   );
 
-  const dailyTotals = new Map<
-    string,
-    { workedHours: number; breakMinutes: number; hasImplicitBreakMinutes: boolean }
-  >();
-
   for (const booking of input.bookings) {
-    const dayTotals = dailyTotals.get(booking.day) ?? {
-      workedHours: 0,
-      breakMinutes: 0,
-      hasImplicitBreakMinutes: false,
-    };
-    dayTotals.workedHours += booking.workedHours;
-    if (booking.breakMinutes === undefined) {
-      dayTotals.hasImplicitBreakMinutes = true;
-    } else {
-      dayTotals.breakMinutes += booking.breakMinutes;
-    }
-    dailyTotals.set(booking.day, dayTotals);
-  }
-
-  for (const [day, totals] of dailyTotals.entries()) {
-    const workedHours = roundToTwo(totals.workedHours);
-
-    if (workedHours > maxHoursRule.maxDailyHoursExtended) {
+    if (booking.workedHours > maxHoursRule.maxDailyHoursExtended) {
       violations.push(
         toViolation({
           code: 'MAX_DAILY_HOURS_EXCEEDED',
-          message: `Worked hours ${workedHours} exceed daily maximum ${maxHoursRule.maxDailyHoursExtended}.`,
+          message: `Worked hours ${booking.workedHours} exceed daily maximum ${maxHoursRule.maxDailyHoursExtended}.`,
           ruleId: maxHoursRule.id,
           ruleName: maxHoursRule.name,
-          context: { day, workedHours },
+          context: { day: booking.day, workedHours: booking.workedHours },
         }),
       );
-    } else if (workedHours > maxHoursRule.maxDailyHours) {
+    } else if (booking.workedHours > maxHoursRule.maxDailyHours) {
       warnings.push({
         code: 'MAX_DAILY_HOURS_EXTENDED_RANGE',
         message:
           'Daily hours exceed the standard maximum and require compensatory tracking within the reference period.',
-        context: { day, workedHours },
+        context: { day: booking.day, workedHours: booking.workedHours },
       });
     }
 
-    if (!totals.hasImplicitBreakMinutes) {
-      const expectedBreak = requiredBreakMinutes(workedHours, breakRule);
-      if (totals.breakMinutes < expectedBreak) {
-        violations.push(
-          toViolation({
-            code: 'BREAK_DEFICIT',
-            message: `Required break is ${expectedBreak} minutes, but only ${totals.breakMinutes} minutes were recorded.`,
-            ruleId: breakRule.id,
-            ruleName: breakRule.name,
-            context: {
-              day,
-              requiredBreakMinutes: expectedBreak,
-              breakMinutes: totals.breakMinutes,
-            },
-          }),
-        );
-      }
+    const expectedBreak = requiredBreakMinutes(booking.workedHours, breakRule);
+    if ((booking.breakMinutes ?? 0) < expectedBreak) {
+      violations.push(
+        toViolation({
+          code: 'BREAK_DEFICIT',
+          message: `Required break is ${expectedBreak} minutes, but only ${booking.breakMinutes ?? 0} minutes were recorded.`,
+          ruleId: breakRule.id,
+          ruleName: breakRule.name,
+          context: { day: booking.day, requiredBreakMinutes: expectedBreak },
+        }),
+      );
     }
   }
 

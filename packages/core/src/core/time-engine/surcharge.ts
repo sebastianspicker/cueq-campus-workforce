@@ -48,7 +48,7 @@ export function isWithinWindow(
   endMinute: number,
 ): boolean {
   if (startMinute === endMinute) {
-    return true;
+    return false;
   }
 
   if (startMinute < endMinute) {

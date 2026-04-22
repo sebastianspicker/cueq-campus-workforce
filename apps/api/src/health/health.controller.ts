@@ -1,8 +1,6 @@
 import { Controller, Get, Inject } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { Role } from '@cueq/database';
+import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Public } from '../common/decorators/public.decorator';
-import { Roles } from '../common/decorators/roles.decorator';
 import { PrismaService } from '../persistence/prisma.service';
 
 @ApiTags('health')
@@ -14,20 +12,7 @@ export class HealthController {
   @Public()
   @ApiOperation({ summary: 'Health check' })
   @ApiResponse({ status: 200, description: 'Service is healthy' })
-  check() {
-    return {
-      status: 'ok',
-      timestamp: new Date().toISOString(),
-      version: process.env.npm_package_version ?? '0.0.0',
-    };
-  }
-
-  @Get('ready')
-  @ApiBearerAuth()
-  @Roles(Role.HR, Role.ADMIN)
-  @ApiOperation({ summary: 'Authenticated readiness and operations status' })
-  @ApiResponse({ status: 200, description: 'Authenticated readiness details' })
-  async readiness() {
+  async check() {
     const generatedAt = new Date();
     const thirtyMinutesAgo = new Date(generatedAt.getTime() - 30 * 60 * 1000);
 

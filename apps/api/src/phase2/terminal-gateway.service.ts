@@ -1,5 +1,10 @@
 import { createHash } from 'node:crypto';
-import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { BookingSource, type Prisma } from '@cueq/database';
 import { z } from 'zod';
 import { PrismaService } from '../persistence/prisma.service';
@@ -7,7 +12,6 @@ import type { AuthenticatedIdentity } from '../common/auth/auth.types';
 import { assertIntegrationToken } from '../common/integrations/integration-token';
 import { parseCsvRecords } from '../common/csv/parse-csv';
 import { AuditHelper } from './helpers/audit.helper';
-import { bookingOverlapWhere } from './helpers/booking-overlap.helper';
 
 export const TerminalSyncBatchSchema = z.object({
   terminalId: z.string().min(1),
@@ -176,13 +180,13 @@ export class TerminalGatewayService {
       }
 
       const bookingStart = new Date(record.startTime);
-      const bookingEnd = record.endTime ? new Date(record.endTime) : null;
+      const bookingEnd = new Date(record.endTime ?? record.startTime);
       const existingImportBooking = await this.prisma.booking.findFirst({
         where: {
           personId: record.personId,
           timeTypeId: timeType.id,
           startTime: bookingStart,
-          endTime: bookingEnd,
+          endTime: record.endTime ? bookingEnd : null,
           source: BookingSource.IMPORT,
         },
         select: { id: true },
@@ -196,7 +200,7 @@ export class TerminalGatewayService {
         where: {
           personId: record.personId,
           status: 'APPROVED',
-          startDate: { lte: bookingEnd ?? bookingStart },
+          startDate: { lte: bookingEnd },
           endDate: { gte: bookingStart },
         },
       });
@@ -211,11 +215,11 @@ export class TerminalGatewayService {
       }
 
       const bookingOverlap = await this.prisma.booking.findFirst({
-        where: bookingOverlapWhere({
+        where: {
           personId: record.personId,
-          startTime: bookingStart,
-          endTime: bookingEnd,
-        }),
+          startTime: { lt: bookingEnd },
+          endTime: { gt: bookingStart },
+        },
       });
       if (bookingOverlap) {
         conflictFlags.push({
@@ -231,7 +235,7 @@ export class TerminalGatewayService {
           personId: record.personId,
           timeTypeId: timeType.id,
           startTime: bookingStart,
-          endTime: bookingEnd,
+          endTime: record.endTime ? bookingEnd : null,
           source: BookingSource.IMPORT,
           note: record.note,
         },

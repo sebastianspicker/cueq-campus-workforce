@@ -159,11 +159,7 @@ export default function ApprovalsPage() {
   }
 
   return (
-    <PageShell
-      title={t('title')}
-      description={t('description')}
-      breadcrumbs={[{ label: 'cueq', href: `/${locale}` }, { label: t('title') }]}
-    >
+    <PageShell title={t('title')} description={t('description')} breadcrumbs={[{ label: 'cueq', href: `/${locale}` }, { label: t('title') }]}>
       <ConnectionPanel
         apiBaseLabel={t('apiBaseLabel')}
         tokenLabel={t('tokenLabel')}
@@ -240,12 +236,7 @@ export default function ApprovalsPage() {
                     <StatusBadge status={item.status} />
                     {item.isOverdue ? <span className="cq-overdue">{t('isOverdue')}</span> : null}
                   </div>
-                  <button
-                    type="button"
-                    className="cq-btn-secondary cq-btn-sm"
-                    disabled={loading}
-                    onClick={() => void loadDetail(item.id)}
-                  >
+                  <button type="button" className="cq-btn-secondary cq-btn-sm" disabled={loading} onClick={() => void loadDetail(item.id)}>
                     {t('details')}
                   </button>
                 </div>
@@ -265,9 +256,7 @@ export default function ApprovalsPage() {
               <dt>{t('workflowId')}</dt>
               <dd className="cq-mono">{detail.id}</dd>
               <dt>{t('statusLabel')}</dt>
-              <dd>
-                <StatusBadge status={detail.status} />
-              </dd>
+              <dd><StatusBadge status={detail.status} /></dd>
               <dt>{t('requesterId')}</dt>
               <dd>{detail.requesterId}</dd>
               <dt>{t('approverId')}</dt>

@@ -12,11 +12,6 @@ run_pnpm format
 run_pnpm typecheck
 run_pnpm docs:links
 "${SCRIPT_DIR}/schemas.sh"
-run_pnpm --filter @cueq/database db:migrate:deploy
-run_pnpm test:unit
-run_pnpm test:integration
-run_pnpm test:acceptance
-run_pnpm test:compliance
-run_pnpm test:backup-restore
+run_pnpm test
 run_pnpm --filter @cueq/policy test:golden
 "${SCRIPT_DIR}/openapi-check.sh"

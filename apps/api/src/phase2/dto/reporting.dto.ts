@@ -135,7 +135,7 @@ export class ClosingCompletionTotalsDto {
   exported!: number;
 
   @ApiProperty({ type: Number })
-  closed!: number;
+  approved!: number;
 
   @ApiProperty({ type: Number })
   review!: number;
@@ -153,9 +153,6 @@ export class ClosingCompletionReportDto {
 
   @ApiProperty({ type: String, format: 'date' })
   to!: string;
-
-  @ApiProperty({ type: String, nullable: true, required: false })
-  organizationUnitId?: string | null;
 
   @ApiProperty({ type: ClosingCompletionTotalsDto })
   totals!: ClosingCompletionTotalsDto;

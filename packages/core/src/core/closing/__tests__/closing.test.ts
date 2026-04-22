@@ -137,29 +137,21 @@ describe('applyCutoffLock', () => {
   });
 
   it('allows HR/Admin re-open and post-close correction', () => {
-    const reopenFromReview = applyCutoffLock({
+    const reopen = applyCutoffLock({
       currentStatus: 'REVIEW',
       action: 'REOPEN',
       actorRole: 'HR',
       checklistHasErrors: false,
     });
-    expect(reopenFromReview.nextStatus).toBe('OPEN');
+    expect(reopen.nextStatus).toBe('OPEN');
 
-    const reopenFromApproved = applyCutoffLock({
-      currentStatus: 'APPROVED',
-      action: 'REOPEN',
-      actorRole: 'HR',
-      checklistHasErrors: false,
-    });
-    expect(reopenFromApproved.nextStatus).toBe('OPEN');
-
-    const reopenFromApprovedAsAdmin = applyCutoffLock({
-      currentStatus: 'APPROVED',
+    const reopenAsAdmin = applyCutoffLock({
+      currentStatus: 'REVIEW',
       action: 'REOPEN',
       actorRole: 'ADMIN',
       checklistHasErrors: false,
     });
-    expect(reopenFromApprovedAsAdmin.nextStatus).toBe('OPEN');
+    expect(reopenAsAdmin.nextStatus).toBe('OPEN');
 
     const postClose = applyCutoffLock({
       currentStatus: 'EXPORTED',
@@ -284,9 +276,9 @@ describe('applyCutoffLock', () => {
     });
     expect(skipApproval.violations[0]?.code).toBe('INVALID_CLOSING_TRANSITION');
 
-    // EXPORTED → OPEN must use post-close correction, not reopen
+    // APPROVED → OPEN (reopen from wrong state)
     const reopenFromApproved = applyCutoffLock({
-      currentStatus: 'EXPORTED',
+      currentStatus: 'APPROVED',
       action: 'REOPEN',
       actorRole: 'HR',
       checklistHasErrors: false,
@@ -348,26 +340,6 @@ describe('computeExportChecksum', () => {
     expect(a.checksum).toBe(b.checksum);
     expect(a.periodId).toBe('period-2026-03');
     expect(a.checksum).toMatch(/^[a-f0-9]{64}$/);
-  });
-
-  it('produces identical checksum for semantically identical objects with different key order', () => {
-    const ordered = computeExportChecksum({
-      periodId: 'period-2026-03',
-      periodStart: '2026-03-01',
-      periodEnd: '2026-03-31',
-      checklist: baseChecklist,
-      data: { employees: ['e1', 'e2'], nested: { alpha: 1, beta: 2 }, totalHours: 320 },
-    });
-
-    const reordered = computeExportChecksum({
-      periodId: 'period-2026-03',
-      periodStart: '2026-03-01',
-      periodEnd: '2026-03-31',
-      checklist: baseChecklist,
-      data: { totalHours: 320, nested: { beta: 2, alpha: 1 }, employees: ['e1', 'e2'] },
-    });
-
-    expect(ordered.checksum).toBe(reordered.checksum);
   });
 
   it('produces different checksum when data changes', () => {

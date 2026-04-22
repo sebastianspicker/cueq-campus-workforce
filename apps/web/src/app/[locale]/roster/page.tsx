@@ -287,11 +287,7 @@ export default function RosterPage() {
   }
 
   return (
-    <PageShell
-      title={t('title')}
-      description={t('description')}
-      breadcrumbs={[{ label: 'cueq', href: `/${locale}` }, { label: t('title') }]}
-    >
+    <PageShell title={t('title')} description={t('description')} breadcrumbs={[{ label: 'cueq', href: `/${locale}` }, { label: t('title') }]}>
       <ConnectionPanel
         apiBaseLabel={t('apiBaseLabel')}
         tokenLabel={t('tokenLabel')}
@@ -320,13 +316,9 @@ export default function RosterPage() {
           <h2>{t('rosterDetail')}</h2>
           <dl className="cq-kv-grid">
             <dt>{t('status')}</dt>
-            <dd>
-              <StatusBadge status={roster.status} />
-            </dd>
+            <dd><StatusBadge status={roster.status} /></dd>
             <dt>{t('period')}</dt>
-            <dd>
-              {roster.periodStart} &ndash; {roster.periodEnd}
-            </dd>
+            <dd>{roster.periodStart} &ndash; {roster.periodEnd}</dd>
           </dl>
         </SectionCard>
       ) : null}
@@ -422,22 +414,11 @@ export default function RosterPage() {
                   <div className="cq-list-item-header">
                     <div className="cq-list-item-meta">
                       <StatusBadge status={shift.shiftType} variant="info" />
-                      <span>
-                        {toLocalDateTimeInput(shift.startTime)} &ndash;{' '}
-                        {toLocalDateTimeInput(shift.endTime)}
-                      </span>
+                      <span>{toLocalDateTimeInput(shift.startTime)} &ndash; {toLocalDateTimeInput(shift.endTime)}</span>
                     </div>
                     <div className="cq-list-item-meta">
-                      <span
-                        className={
-                          isUnderstaffed
-                            ? 'cq-status-dot cq-status-dot-warn'
-                            : 'cq-status-dot cq-status-dot-ok'
-                        }
-                      />
-                      <span>
-                        {t('assigned')}: {shift.assignments.length} / {shift.minStaffing}
-                      </span>
+                      <span className={isUnderstaffed ? 'cq-status-dot cq-status-dot-warn' : 'cq-status-dot cq-status-dot-ok'} />
+                      <span>{t('assigned')}: {shift.assignments.length} / {shift.minStaffing}</span>
                     </div>
                   </div>
 
@@ -476,9 +457,7 @@ export default function RosterPage() {
                     <ul className="cq-space-top-xs">
                       {shift.assignments.map((assignment) => (
                         <li key={assignment.id} className="cq-list-item-meta">
-                          <span>
-                            {assignment.firstName} {assignment.lastName}
-                          </span>
+                          <span>{assignment.firstName} {assignment.lastName}</span>
                           <button
                             type="button"
                             className="cq-btn-ghost cq-btn-sm"
@@ -562,13 +541,7 @@ export default function RosterPage() {
                   <div
                     className="cq-compliance-fill"
                     style={{ width: `${Math.min(100, planVsActual.complianceRate * 100)}%` }}
-                    data-level={
-                      planVsActual.complianceRate < 0.7
-                        ? 'error'
-                        : planVsActual.complianceRate < 0.9
-                          ? 'warn'
-                          : undefined
-                    }
+                    data-level={planVsActual.complianceRate < 0.7 ? 'error' : planVsActual.complianceRate < 0.9 ? 'warn' : undefined}
                   />
                 </div>
               </div>
@@ -592,12 +565,7 @@ export default function RosterPage() {
                     <td>{slot.plannedHeadcount}</td>
                     <td>{slot.actualHeadcount}</td>
                     <td>{slot.delta}</td>
-                    <td>
-                      <StatusBadge
-                        status={slot.compliant ? 'OK' : 'FAIL'}
-                        label={slot.compliant ? t('yes') : t('no')}
-                      />
-                    </td>
+                    <td><StatusBadge status={slot.compliant ? 'OK' : 'FAIL'} label={slot.compliant ? t('yes') : t('no')} /></td>
                   </tr>
                 ))}
               </tbody>
