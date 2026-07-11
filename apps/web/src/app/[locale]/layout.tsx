@@ -1,8 +1,7 @@
-import { Suspense } from 'react';
 import { NextIntlClientProvider } from 'next-intl';
 import { setRequestLocale } from 'next-intl/server';
 import Link from 'next/link';
-import { connection } from 'next/server';
+import { Suspense } from 'react';
 import { AppClientEffects } from '../../components/AppClientEffects';
 import { ErrorBoundary } from '../../components/ErrorBoundary';
 import { LocaleSwitchLink } from '../../components/LocaleSwitchLink';
@@ -25,7 +24,6 @@ export default async function LocaleLayout({ children, params }: LocaleLayoutPro
   const { locale: rawLocale } = await params;
   const locale = locales.includes(rawLocale as Locale) ? (rawLocale as Locale) : 'de';
   setRequestLocale(locale);
-  await connection();
 
   const messages = (await import(`../../messages/${locale}.json`)).default;
   const altLocale = locale === 'de' ? 'en' : 'de';

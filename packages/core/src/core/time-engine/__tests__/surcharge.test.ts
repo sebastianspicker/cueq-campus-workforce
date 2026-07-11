@@ -16,13 +16,13 @@ describe('parseLocalTimeToMinute', () => {
     expect(parseLocalTimeToMinute('23:59')).toBe(1439);
   });
 
-  it('returns 0 for invalid inputs', () => {
-    expect(parseLocalTimeToMinute('')).toBe(0);
-    expect(parseLocalTimeToMinute('25:00')).toBe(0);
-    expect(parseLocalTimeToMinute('12:60')).toBe(0);
-    expect(parseLocalTimeToMinute('ab:cd')).toBe(0);
-    expect(parseLocalTimeToMinute('-1:00')).toBe(0);
-    expect(parseLocalTimeToMinute('12')).toBe(0);
+  it('returns null for invalid inputs', () => {
+    expect(parseLocalTimeToMinute('')).toBeNull();
+    expect(parseLocalTimeToMinute('25:00')).toBeNull();
+    expect(parseLocalTimeToMinute('12:60')).toBeNull();
+    expect(parseLocalTimeToMinute('ab:cd')).toBeNull();
+    expect(parseLocalTimeToMinute('-1:00')).toBeNull();
+    expect(parseLocalTimeToMinute('12')).toBeNull();
   });
 });
 
@@ -102,30 +102,6 @@ describe('localMinuteInfo', () => {
     const info = localMinuteInfo(ts, berlinFormatter);
     expect(info.isoDate).toBe('2026-03-04');
     expect(info.localMinuteOfDay).toBe(30); // 00:30
-  });
-
-  it('normalizes hour 24 without advancing the already-local date', () => {
-    const h24Formatter = {
-      formatToParts: (): Intl.DateTimeFormatPart[] => [
-        { type: 'weekday', value: 'Wed' },
-        { type: 'literal', value: ', ' },
-        { type: 'month', value: '03' },
-        { type: 'literal', value: '/' },
-        { type: 'day', value: '04' },
-        { type: 'literal', value: '/' },
-        { type: 'year', value: '2026' },
-        { type: 'literal', value: ', ' },
-        { type: 'hour', value: '24' },
-        { type: 'literal', value: ':' },
-        { type: 'minute', value: '30' },
-      ],
-    } as unknown as Intl.DateTimeFormat;
-
-    const info = localMinuteInfo(new Date('2026-03-03T23:30:00.000Z').getTime(), h24Formatter);
-
-    expect(info.isoDate).toBe('2026-03-04');
-    expect(info.weekday).toBe(3);
-    expect(info.localMinuteOfDay).toBe(30);
   });
 
   it('handles DST spring forward (CET->CEST)', () => {

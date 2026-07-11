@@ -2220,6 +2220,14 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "organizationUnitId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {

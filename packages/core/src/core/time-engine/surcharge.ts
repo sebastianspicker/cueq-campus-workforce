@@ -23,7 +23,7 @@ export interface ZonedMinute {
   localMinuteOfDay: number;
 }
 
-export function parseLocalTimeToMinute(localTime: string): number {
+export function parseLocalTimeToMinute(localTime: string): number | null {
   const [hourRaw, minuteRaw] = localTime.split(':');
   const hour = Number(hourRaw);
   const minute = Number(minuteRaw);
@@ -36,7 +36,7 @@ export function parseLocalTimeToMinute(localTime: string): number {
     minute < 0 ||
     minute > 59
   ) {
-    return 0;
+    return null;
   }
 
   return hour * 60 + minute;
@@ -68,10 +68,14 @@ export function localMinuteInfo(timestamp: number, formatter: Intl.DateTimeForma
   let hour = Number(byType.get('hour') ?? '0');
   const minute = Number(byType.get('minute') ?? '0');
 
-  // Intl.DateTimeFormat can return hour 24 while already reporting the local date.
-  // Normalize only the hour; advancing the date would double-count the day rollover.
+  // Intl.DateTimeFormat with hour12:false can return hour 24 for midnight.
+  // Normalize to hour 0 of the next day.
   if (hour === 24) {
     hour = 0;
+    const nextDay = new Date(Date.UTC(year, month - 1, day + 1));
+    year = nextDay.getUTCFullYear();
+    month = nextDay.getUTCMonth() + 1;
+    day = nextDay.getUTCDate();
   }
 
   const weekday = WEEKDAY_TO_INDEX[weekdayName];
