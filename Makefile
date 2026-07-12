@@ -28,7 +28,7 @@ dev: ## Start development servers (API + Web) with hot reload
 # ---------------------------------------------------------------------------
 
 .PHONY: check
-check: ## Full validation: lint + format + typecheck + schemas + tests + openapi-check
+check: ## Full validation: hygiene + lint + format + typecheck + schemas + tests + openapi-check
 	$(SCRIPTS)/check.sh
 
 .PHONY: quick
@@ -40,6 +40,10 @@ quick: ## Fast local validation: lint + typecheck + unit tests
 .PHONY: docs-check
 docs-check: ## Validate internal markdown links
 	$(SCRIPTS)/pnpm.sh docs:links
+
+.PHONY: hygiene-check
+hygiene-check: ## Reject private, local-only, and generated artifacts tracked by Git
+	$(SCRIPTS)/check-repo-hygiene.sh
 
 .PHONY: lint
 lint: ## Run linters in check mode (no auto-fix)

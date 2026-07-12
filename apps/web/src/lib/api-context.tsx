@@ -4,6 +4,7 @@ import { createContext, useContext, useMemo, useState } from 'react';
 import { createApiRequest, type ApiRequest } from './api-client';
 
 const SESSION_ENDPOINT_SLOT = 'cq-api-base-url';
+const LEGACY_SESSION_TOKEN_SLOT = 'cq-token';
 const DEFAULT_API_BASE_URL = '/api';
 
 function readSessionValue(key: string, fallback: string): string {
@@ -62,7 +63,10 @@ export function ApiProvider({ children }: ApiProviderProps) {
   const [apiBaseUrl, setApiBaseUrlState] = useState(() =>
     normalizeApiBaseUrl(readSessionValue(SESSION_ENDPOINT_SLOT, DEFAULT_API_BASE_URL)),
   );
-  const [token, setTokenState] = useState('');
+  const [token, setTokenState] = useState(() => {
+    writeSessionValue(LEGACY_SESSION_TOKEN_SLOT, '');
+    return '';
+  });
 
   const value = useMemo<ApiContextValue>(() => {
     const setApiBaseUrl = (nextValue: string) => {

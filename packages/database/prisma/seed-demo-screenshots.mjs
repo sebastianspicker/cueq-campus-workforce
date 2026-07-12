@@ -97,7 +97,7 @@ async function upsertPerson(data) {
   });
 }
 
-async function seed() {
+async function seedDemoPeople() {
   runPhase3('seed');
 
   await prisma.organizationUnit.update({
@@ -150,7 +150,9 @@ async function seed() {
     where: { id: IDs.personItOncall },
     data: { firstName: 'Ida', lastName: 'Bereitschaft' },
   });
+}
 
+async function seedDemoSecurityPeople() {
   const securityEmploymentStart = new Date('2025-01-01T00:00:00.000Z');
   await upsertPerson({
     id: IDs.personSecurity1,
@@ -212,7 +214,9 @@ async function seed() {
     supervisorId: IDs.personLead,
     workTimeModelId: IDs.modelShift,
   });
+}
 
+async function seedDemoShifts() {
   await prisma.shift.update({
     where: { id: IDs.shiftNight },
     data: {
@@ -263,7 +267,9 @@ async function seed() {
       endTime: new Date('2026-03-10T22:00:00.000Z'),
     },
   });
+}
 
+async function seedDemoAssignments() {
   const assignments = [
     { shiftId: IDs.shiftNight, personId: IDs.personPlanner },
     { shiftId: IDs.shiftNight, personId: IDs.personSecurity1 },
@@ -283,7 +289,9 @@ async function seed() {
       update: {},
     });
   }
+}
 
+async function seedDemoSecurityBookings() {
   const securityBookings = [
     {
       id: IDs.bookingSecurityNightPlanner,
@@ -343,7 +351,9 @@ async function seed() {
       },
     });
   }
+}
 
+async function seedDemoAbsences() {
   const absences = [
     {
       id: IDs.absenceEmployeeRequested,
@@ -410,7 +420,16 @@ async function seed() {
       },
     });
   }
+}
 
+async function seedDemoScheduling() {
+  await seedDemoShifts();
+  await seedDemoAssignments();
+  await seedDemoSecurityBookings();
+  await seedDemoAbsences();
+}
+
+async function seedDemoWorkflow() {
   await prisma.workflowInstance.upsert({
     where: { id: IDs.workflowPendingLeave },
     create: {
@@ -443,7 +462,9 @@ async function seed() {
       createdAt: new Date('2026-03-18T08:30:00.000Z'),
     },
   });
+}
 
+async function seedDemoTimeAccounts() {
   const securityTimeAccounts = [
     {
       id: IDs.timeAccountPlanner,
@@ -512,7 +533,9 @@ async function seed() {
       },
     });
   }
+}
 
+async function seedDemoExportRun() {
   await prisma.exportRun.upsert({
     where: { id: IDs.exportRun },
     create: {
@@ -539,7 +562,9 @@ async function seed() {
       exportedById: IDs.personHr,
     },
   });
+}
 
+async function seedDemoAuditEntries() {
   const auditEntries = [
     {
       id: IDs.auditReportAccessA,
@@ -632,6 +657,20 @@ async function seed() {
       },
     });
   }
+}
+
+async function seedDemoClosing() {
+  await seedDemoWorkflow();
+  await seedDemoTimeAccounts();
+  await seedDemoExportRun();
+  await seedDemoAuditEntries();
+}
+
+async function seed() {
+  await seedDemoPeople();
+  await seedDemoSecurityPeople();
+  await seedDemoScheduling();
+  await seedDemoClosing();
 }
 
 async function reset() {

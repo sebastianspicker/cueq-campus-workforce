@@ -86,7 +86,7 @@ async function reset() {
   await prisma.organizationUnit.deleteMany();
 }
 
-async function seed() {
+async function seedOrganizationPeople() {
   await prisma.organizationUnit.createMany({
     data: [
       { id: IDs.ouAdmin, name: 'Verwaltung' },
@@ -125,7 +125,9 @@ async function seed() {
       },
     ],
   });
+}
 
+async function seedCorePeople() {
   await prisma.person.createMany({
     data: [
       {
@@ -185,6 +187,13 @@ async function seed() {
         organizationUnitId: IDs.ouAdmin,
         workTimeModelId: IDs.modelFlextime,
       },
+    ],
+  });
+}
+
+async function seedSupportPeople() {
+  await prisma.person.createMany({
+    data: [
       {
         id: IDs.personItOncall,
         externalId: 'oncall01',
@@ -232,7 +241,9 @@ async function seed() {
       },
     ],
   });
+}
 
+async function seedTimeTypes() {
   await prisma.timeType.createMany({
     data: [
       {
@@ -265,7 +276,9 @@ async function seed() {
       },
     ],
   });
+}
 
+async function seedRosterAndShift() {
   await prisma.roster.create({
     data: {
       id: IDs.rosterCurrent,
@@ -295,7 +308,9 @@ async function seed() {
       personId: IDs.personPlanner,
     },
   });
+}
 
+async function seedTimeOperationBookings() {
   await prisma.booking.createMany({
     data: [
       {
@@ -324,7 +339,9 @@ async function seed() {
       },
     ],
   });
+}
 
+async function seedOnCallOperations() {
   await prisma.onCallRotation.create({
     data: {
       id: IDs.onCallRotation,
@@ -350,7 +367,9 @@ async function seed() {
       description: 'Synthetic deployment for acceptance tests',
     },
   });
+}
 
+async function seedTimeOperationAbsences() {
   await prisma.absence.createMany({
     data: [
       {
@@ -375,7 +394,17 @@ async function seed() {
       },
     ],
   });
+}
 
+async function seedTimeOperations() {
+  await seedTimeTypes();
+  await seedRosterAndShift();
+  await seedTimeOperationBookings();
+  await seedOnCallOperations();
+  await seedTimeOperationAbsences();
+}
+
+async function seedWorkflowClosing() {
   await prisma.workflowPolicy.createMany({
     data: [
       {
@@ -473,6 +502,14 @@ async function seed() {
       ipAddress: '127.0.0.1',
     },
   });
+}
+
+async function seed() {
+  await seedOrganizationPeople();
+  await seedCorePeople();
+  await seedSupportPeople();
+  await seedTimeOperations();
+  await seedWorkflowClosing();
 }
 
 async function main() {

@@ -9,16 +9,7 @@
     "repositoryName": null,
     "createdAt": "2026-06-05T13:00:28.933Z",
     "updatedAt": "2026-06-05T13:00:28.933Z",
-    "languages": [
-      "CSS",
-      "JSON",
-      "Javascript",
-      "Markdown",
-      "SQL",
-      "Shell",
-      "TypeScript",
-      "YAML"
-    ]
+    "languages": ["CSS", "JSON", "Javascript", "Markdown", "SQL", "Shell", "TypeScript", "YAML"]
   },
   "tools": [
     {
@@ -2403,7 +2394,7 @@
     },
     {
       "toolId": "ESLint9",
-      "localConfigurationFile": "/Users/sebastian/Git/cueq/eslint.config.mjs",
+      "localConfigurationFile": "./eslint.config.mjs",
       "useLocalConfigurationFile": true,
       "patterns": []
     },
@@ -6557,9 +6548,7 @@
           "patternId": "SQLFluff_ST07_structure.using"
         }
       ],
-      "exclude": [
-        "packages/database/prisma/migrations/**"
-      ]
+      "exclude": []
     },
     {
       "toolId": "Agentlinter",
@@ -6760,9 +6749,6 @@
           "patternId": "Agentlinter_runtime_auth-mode"
         },
         {
-          "patternId": "Agentlinter_runtime_config-exists"
-        },
-        {
           "patternId": "Agentlinter_runtime_config-secrets"
         },
         {
@@ -6879,8 +6865,6 @@
     "contracts/openapi/openapi.json",
     "docs/generated/**",
     "packages/shared/src/generated/**",
-    "packages/database/prisma/migrations/20260419000002_time_threshold_policy/migration.sql",
-    "apps/web/src/app/globals.css",
-    "AGENTS.md"
+    "packages/database/prisma/migrations/20260419000002_time_threshold_policy/migration.sql"
   ]
 }

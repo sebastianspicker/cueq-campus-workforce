@@ -17,21 +17,25 @@ contracts/openapi/openapi.generated.json
 # Prisma
 packages/database/generated/
 
-# Environment
-.env
-.env.local
-.env.*.local
+# Environment (only the synthetic template is public)
+.env*
 !.env.example
 
 # IDE
-.vscode/settings.json
+.vscode/
 .idea/
+.fleet/
+.history/
+.zed/
 *.swp
 *.swo
 *~
 
 # OS
 .DS_Store
+._*
+.Spotlight-V100/
+.Trashes/
 Thumbs.db
 
 # Test coverage
@@ -47,6 +51,9 @@ apps/web/playwright-report/
 *.log
 npm-debug.log*
 pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
 
 # Secrets & credentials
 *.pem
@@ -54,14 +61,27 @@ pnpm-debug.log*
 *.p12
 *.pfx
 *.cert
+*.crt
+*.cer
+*.jks
+*.keystore
 credentials.json
 service-account*.json
-.env.production
+id_rsa*
+id_ed25519*
 
 # Local tooling artifacts
 .claude/
 .codex/
 .agents/
+.codegraph/
+.serena/
+openclaw.json
+.codacy/generated/
+.codacy/logs/
+.codacy/tools-configs/
+.codacy/cli-config.yaml
+.codacy/configure-codacy-summary.json
 progress.md
 AUDIT.md
 /plan.md
@@ -72,9 +92,58 @@ AUDIT.md
 /docs/*-ledger.md
 /docs/*-status.md
 /docs/*-audit.md
+/docs/*-review-log.md
+/docs/**/*-review-log.md
+/docs/code-index.md
 docs/archive/
 docs/agent/
 /archive/
+
+# Local reports, traces, dumps, and editor leftovers
+*.sarif
+*.har
+*.dump
+*.backup
+*.sqlite
+*.sqlite3
+*.db
+*.sqlite-shm
+*.sqlite-wal
+*.db-shm
+*.db-wal
+*.xlsx
+*.xls
+*.ods
+*.numbers
+*.ics
+*.eml
+*.msg
+*.mbox
+*.pst
+*.ost
+*.olm
+*.vcf
+*.zip
+*.7z
+*.tar
+*.tar.gz
+*.tgz
+*.tmp
+*.orig
+*.rej
+/.eslintcache
+/.stylelintcache
+/.parcel-cache/
+/.swc/
+/.vite/
+/.vitest/
+/.cache/
+/tmp/
+/temp/
+/backups/
+/exports/
+/reports/
+/docs/assets/demo-screenshots/
 
 # Misc
 *.tsbuildinfo
