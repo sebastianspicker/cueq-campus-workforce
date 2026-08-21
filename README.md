@@ -16,11 +16,15 @@ The repository combines:
   behavior;
 - shared Zod and JSON Schema contracts;
 - policy rules and golden-case tests; and
-- synthetic fixtures for local development and verification.
+- a small set of direct contract checks for critical domain behavior.
 
 This is a source alpha for local evaluation. It is not a hosted service or an
 approved system for institutional use. Do not load real employee, payroll,
 health, credential, or operational data.
+
+Explore the [guided static demo](https://sebastianspicker.github.io/cueq/). It
+uses sanitized fixture captures of the real interface; every command-capable
+action is visibly marked as simulated and no backend is connected.
 
 The current release evidence and unresolved gates are recorded in
 [RELEASE_STATUS.md](RELEASE_STATUS.md).
@@ -63,9 +67,10 @@ behavior and source entry points are indexed in
 - Runtime status is limited to liveness, authenticated operational health, and
   integration-token terminal health. There is no metrics endpoint, tracing
   stack, log shipping, dashboard, or alert delivery.
-- The repository contains no deployment workflow, container image for the
-  applications, reverse proxy, TLS configuration, rollback controller, or
-  production secret store.
+- The repository contains no application deployment workflow, container image
+  for the applications, reverse proxy, TLS configuration, rollback controller,
+  or production secret store. Its Pages workflow publishes only the static
+  fixture walkthrough.
 - Passing repository checks does not establish legal, data-protection,
   works-council, accessibility, security, or operational approval.
 
@@ -78,7 +83,6 @@ work.
 - pnpm 9.15.0
 - GNU Make and Bash
 - Docker with Docker Compose for PostgreSQL-backed workflows
-- Chromium installed through Playwright for browser tests
 - PostgreSQL client tools or the configured PostgreSQL client container for the
   backup and restore drill
 
@@ -168,7 +172,7 @@ For the mock-token walkthrough and synthetic data details, use the
 | `packages/shared/`   | Shared Zod schemas, types, and date utilities                                                |
 | `contracts/`         | Committed public contract snapshots                                                          |
 | `schemas/`           | JSON Schema source contracts                                                                 |
-| `fixtures/`          | Synthetic calendar, integration, identity, and reference data                                |
+| `data/holidays/`     | Curated holiday data used by absence and roster calculations                                 |
 | `scripts/`           | Setup, development, validation, generation, migration, and maintenance entry points          |
 | `docs/`              | Architecture, configuration, operations, security, product, and release documentation        |
 
@@ -207,27 +211,41 @@ index, and shared schema types. Review the resulting diff.
 | `make lint`                | ESLint across all workspaces                                         |
 | `make format`              | Prettier check                                                       |
 | `make typecheck`           | Pinned TypeScript toolchain check and workspace type checking        |
-| `make test-unit`           | Unit and smoke tests plus repository script tests                    |
-| `make test-coverage`       | Configured coverage thresholds                                       |
-| `make test-integration`    | PostgreSQL-backed integration suites                                 |
-| `make test-e2e`            | Playwright end-to-end suite                                          |
-| `make test-acceptance`     | API, package, and browser acceptance suites                          |
-| `make test-compliance`     | Privacy and audit compliance suites                                  |
-| `make test-backup-restore` | PostgreSQL dump, restore, count, checksum, and audit verification    |
-| `make test-all`            | Unit, integration, acceptance, compliance, golden, and restore tests |
-| `make schemas`             | JSON Schema and fixture validation                                   |
+| `make test`                | Focused workspace contract tests                                     |
+| `make quick`               | Lint, typecheck, and focused tests                                   |
+| `make schemas`             | JSON Schema validation                                               |
 | `make docs-check`          | Internal Markdown link validation                                    |
 | `make knip`                | Unused files, exports, dependencies, and binaries                    |
 | `make build`               | All packages and applications                                        |
 | `make check`               | Ordered full repository gate                                         |
 
-`make check` requires PostgreSQL and runs the service-backed suites. Browser
-checks also require the Playwright Chromium revision. The exact gate sequence
+`make check` requires PostgreSQL for migrations and runs the focused contract
+suite. The exact gate sequence
 is documented in [docs/QUALITY_GATES.md](docs/QUALITY_GATES.md).
+
+## Static demo and GitHub Pages
+
+The guided demo is a dependency-free projection of six sanitized interface
+captures. It does not start Next.js, NestJS, PostgreSQL, authentication, or any
+command-capable workflow. Build, verify, and serve the exact Pages artifact
+locally with:
+
+```bash
+node scripts/build-pages-demo.mjs
+node scripts/verify-pages-demo.mjs
+python3 -m http.server 8082 --bind 127.0.0.1 --directory dist/pages-demo
+```
+
+Open <http://127.0.0.1:8082/>. The builder copies the entry stylesheet and all
+of its relative CSS imports, the six reviewed screenshots, the demo script,
+and the icon. The verifier checks that those assets are present and local.
+The Pages workflow runs the same two Node scripts; a local pass does not prove
+that GitHub Actions ran or that a hosted deployment is current.
 
 ## Deployment and operation
 
-The repository does not provide an automated deployment.
+The repository does not provide an automated application deployment. The
+static-demo Pages workflow is not an application runtime.
 
 After building with `make build`, the application start commands are:
 
@@ -265,8 +283,6 @@ Operational procedures and health-route behavior are documented in
   the SAML bridge for a production-mode process.
 - A stale `node_modules` tree can disagree with the lockfile. Reinstall with
   `./scripts/pnpm.sh install --frozen-lockfile`.
-- Browser tests require the Chromium revision for Playwright 1.58.2. Install it
-  with `pnpm --filter @cueq/web exec playwright install chromium`.
 - `make clean` removes build output, dependencies, and local Compose volumes.
   Do not use it when local database state must be retained.
 

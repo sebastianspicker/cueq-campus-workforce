@@ -27,13 +27,14 @@ cueq stores policy rules as typed repository artifacts:
 
 ## 3. Golden-Case Test Suite
 
-Located at `packages/policy/src/__tests__/golden-cases.test.ts`. This suite:
+Located in the `packages/policy/src/__tests__/golden-cases-*.test.ts` shards.
+Together these suites:
 
 1. Validates all default rules against their Zod schemas
 2. Asserts specific legal minimums (e.g., 30min break after 6h, 11h rest)
 3. Exercises the current default rules against synthetic golden cases.
 
-CI gate: The `test:golden` script runs through the repository checks.
+CI runs the direct policy contract checks with the repository test command.
 
 ## 4. Policy Changelog
 
