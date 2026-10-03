@@ -3,7 +3,11 @@ import { ForbiddenException, Inject, Injectable } from '@nestjs/common';
 import { PrismaService } from '../../persistence/prisma.service.js';
 import type { AuthenticatedIdentity } from '../../platform/auth/auth.types.js';
 import { AuditHelper } from '../audit/public.js';
-import { PersonHelper, REPORT_ALLOWED_ROLES } from '../people/public.js';
+import {
+  OVERTIME_REPORT_ALLOWED_ROLES,
+  PersonHelper,
+  REPORT_ALLOWED_ROLES,
+} from '../people/public.js';
 import {
   reportClosingCompletion,
   reportOeOvertime,
@@ -42,7 +46,9 @@ export class ReportingAnalyticsHelper {
   }
 
   async reportOeOvertime(user: AuthenticatedIdentity, query: unknown) {
-    this.assertCanReadReports(user);
+    if (!OVERTIME_REPORT_ALLOWED_ROLES.has(user.role)) {
+      throw new ForbiddenException('Exact overtime reports are restricted to HR/Admin roles.');
+    }
     return reportOeOvertime(
       {
         prisma: this.prisma,

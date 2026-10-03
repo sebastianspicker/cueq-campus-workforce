@@ -48,4 +48,16 @@ describe('parseCsvRecords', () => {
 
     expect(() => parseCsvRecords(csv)).toThrow(/header names must be non-empty/iu);
   });
+
+  it('rejects rectangular output amplification before materializing records', () => {
+    const headers = Array.from({ length: 100 }, (_, index) => `column${index}`).join(',');
+    const rows = Array.from({ length: 2_501 }, () => 'value').join('\n');
+
+    expect(() => parseCsvRecords(`${headers}\n${rows}`)).toThrow(/output cells/iu);
+  });
+
+  it('rejects excessive column count while scanning', () => {
+    const headers = Array.from({ length: 101 }, (_, index) => `column${index}`).join(',');
+    expect(() => parseCsvRecords(`${headers}\nvalue`)).toThrow(/columns/iu);
+  });
 });

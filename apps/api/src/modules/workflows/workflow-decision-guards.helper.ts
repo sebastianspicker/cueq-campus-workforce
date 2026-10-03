@@ -3,6 +3,7 @@ import { BadRequestException, ConflictException, NotFoundException } from '@nest
 import { type Prisma, WorkflowType } from '@cueq/database';
 import {
   BookingCorrectionSchema,
+  isBookingDurationAllowed,
   OvertimeApprovalRequestSchema,
   ShiftSwapRequestSchema,
 } from '@cueq/contracts';
@@ -164,6 +165,9 @@ function assertCorrectionMatchesBooking(
   const endTime = correction.endTime ? new Date(correction.endTime) : booking.endTime;
   if (endTime && startTime >= endTime) {
     throw new BadRequestException('Corrected booking endTime must be after startTime.');
+  }
+  if (endTime && !isBookingDurationAllowed(startTime, endTime)) {
+    throw new BadRequestException('Corrected booking duration must not exceed 7 days.');
   }
 }
 

@@ -1,6 +1,8 @@
 import { Role } from '@prisma/client';
 import { parseCsvRecords } from './csv.mjs';
 
+const MAX_HR_IMPORT_RECORDS = 10_000;
+
 function recordField(row, key, fallback) {
   return row[key] ?? fallback;
 }
@@ -53,6 +55,12 @@ function parseEmploymentDate(value) {
 }
 
 export function validateRows(rows) {
+  if (rows.length > MAX_HR_IMPORT_RECORDS) {
+    return {
+      validatedRows: [],
+      errors: [`HR import exceeds the maximum of ${MAX_HR_IMPORT_RECORDS} records.`],
+    };
+  }
   const errors = [];
   const seenExternalIds = new Set();
   const seenEmails = new Set();
@@ -122,16 +130,31 @@ export function validateRows(rows) {
   });
 
   const byExternalId = new Map(validatedRows.map((row) => [row.externalId, row]));
+  const leadsToCycle = new Map();
   for (const row of validatedRows) {
-    const visited = new Set([row.externalId]);
-    let supervisorExternalId = row.supervisorExternalId;
-    while (supervisorExternalId && byExternalId.has(supervisorExternalId)) {
-      if (visited.has(supervisorExternalId)) {
-        errors.push(`Supervisor cycle detected for externalId="${row.externalId}".`);
+    if (leadsToCycle.has(row.externalId)) continue;
+    const path = [];
+    const pathIndexes = new Map();
+    let currentId = row.externalId;
+    let cyclic = false;
+    while (currentId && byExternalId.has(currentId)) {
+      if (leadsToCycle.has(currentId)) {
+        cyclic = leadsToCycle.get(currentId);
         break;
       }
-      visited.add(supervisorExternalId);
-      supervisorExternalId = byExternalId.get(supervisorExternalId)?.supervisorExternalId;
+      if (pathIndexes.has(currentId)) {
+        cyclic = true;
+        break;
+      }
+      pathIndexes.set(currentId, path.length);
+      path.push(currentId);
+      currentId = byExternalId.get(currentId)?.supervisorExternalId;
+    }
+    for (const pathId of path) leadsToCycle.set(pathId, cyclic);
+  }
+  for (const row of validatedRows) {
+    if (leadsToCycle.get(row.externalId)) {
+      errors.push(`Supervisor cycle detected for externalId="${row.externalId}".`);
     }
   }
 

@@ -55,4 +55,32 @@ describe('CLI HR import employment dates', () => {
     expect(reversed.validatedRows).toEqual([]);
     expect(reversed.errors[0]).toContain('precedes employmentStartDate');
   });
+
+  it('handles long supervisor chains linearly and preserves cycle errors for ancestors', () => {
+    const rows = Array.from({ length: 2_000 }, (_, index) => ({
+      externalId: `employee-${index}`,
+      firstName: 'Test',
+      lastName: 'Person',
+      email: `employee-${index}@example.test`,
+      role: 'EMPLOYEE',
+      organizationUnit: 'Test',
+      workTimeModel: 'Default',
+      weeklyHours: '40',
+      dailyTargetHours: '8',
+      supervisorExternalId: index === 0 ? undefined : `employee-${index - 1}`,
+    }));
+    expect(validateRows(rows).errors).toEqual([]);
+
+    const [first, second, third] = rows;
+    const cyclic = validateRows([
+      { ...first, externalId: 'a', email: 'a@example.test', supervisorExternalId: 'b' },
+      { ...second, externalId: 'b', email: 'b@example.test', supervisorExternalId: 'c' },
+      { ...third, externalId: 'c', email: 'c@example.test', supervisorExternalId: 'b' },
+    ]);
+    expect(cyclic.errors).toEqual([
+      'Supervisor cycle detected for externalId="a".',
+      'Supervisor cycle detected for externalId="b".',
+      'Supervisor cycle detected for externalId="c".',
+    ]);
+  });
 });

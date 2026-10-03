@@ -1,6 +1,11 @@
 /** Runtime contracts for monthly-closing lifecycle, checklist, correction, and export data. */
 import { z } from 'zod';
-import { DateTimeSchema, IdSchema, isDateTimeInstantBefore } from './common.js';
+import {
+  DateTimeSchema,
+  IdSchema,
+  validateBookingDuration,
+  validateOptionalDateTimeRange,
+} from './common.js';
 
 export const ClosingStatusSchema = z.enum(['OPEN', 'REVIEW', 'APPROVED', 'EXPORTED']);
 export type ClosingStatus = z.infer<typeof ClosingStatusSchema>;
@@ -46,9 +51,9 @@ export const ClosingBookingCorrectionSchema = z
     reason: z.string().min(10).max(1000),
     note: z.string().max(1000).optional(),
   })
-  .refine((input) => isDateTimeInstantBefore(input.startTime, input.endTime), {
-    message: 'endTime must be after startTime',
-    path: ['endTime'],
+  .superRefine((input, ctx) => {
+    validateOptionalDateTimeRange(input, ctx, 'endTime must be after startTime');
+    validateBookingDuration(input, ctx);
   });
 export type ClosingBookingCorrection = z.infer<typeof ClosingBookingCorrectionSchema>;
 

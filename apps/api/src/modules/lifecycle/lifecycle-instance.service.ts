@@ -55,6 +55,23 @@ type TaskRow = {
   createdAt: Date;
 };
 
+function assertMatchingActivationRetry(
+  existing: Pick<InstanceRow, 'personId' | 'baseDate' | 'organizationUnitId'>,
+  input: { personId: string },
+  baseDate: Date,
+  organizationUnitId: string,
+): void {
+  if (
+    existing.personId !== input.personId ||
+    existing.baseDate.getTime() !== baseDate.getTime() ||
+    existing.organizationUnitId !== organizationUnitId
+  ) {
+    throw new ConflictException(
+      'Lifecycle event key is already bound to different activation inputs.',
+    );
+  }
+}
+
 function taskDto(task: TaskRow) {
   return {
     ...task,
@@ -173,6 +190,8 @@ export class LifecycleInstanceService {
         include: { tasks: { take: 101 } },
       });
       if (existing) {
+        await assertLifecycleInstanceScope(tx, actorId, existing.id);
+        assertMatchingActivationRetry(existing, input, baseDate, employment.organizationUnitId);
         if (existing.tasks.length > 100) {
           throw new ConflictException('Lifecycle instance exceeds the task limit.');
         }

@@ -1,5 +1,6 @@
 /** Runtime contracts shared by structured and CSV-backed terminal imports. */
 import { z } from 'zod';
+import { MAX_BOOKING_DURATION_MS } from '@cueq/contracts';
 
 export const TerminalRecordSchema = z
   .object({
@@ -15,13 +16,19 @@ export const TerminalRecordSchema = z
       record.endTime === undefined ||
       new Date(record.endTime).getTime() > new Date(record.startTime).getTime(),
     { message: 'endTime must be after startTime', path: ['endTime'] },
+  )
+  .refine(
+    (record) =>
+      record.endTime === undefined ||
+      Date.parse(record.endTime) - Date.parse(record.startTime) <= MAX_BOOKING_DURATION_MS,
+    { message: 'Booking duration must not exceed 7 days', path: ['endTime'] },
   );
 
 /** Runtime contract for a terminal batch submitted as structured records. */
 export const TerminalSyncBatchSchema = z.object({
   terminalId: z.string().min(1),
   sourceFile: z.string().optional(),
-  records: z.array(TerminalRecordSchema),
+  records: z.array(TerminalRecordSchema).max(10_000),
 });
 
 const MAX_TERMINAL_CSV_BYTES = 2_000_000;

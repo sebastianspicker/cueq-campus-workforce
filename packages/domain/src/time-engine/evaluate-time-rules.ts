@@ -31,11 +31,47 @@ import type {
   TimeRuleEvaluationResult,
 } from './types.js';
 
+export const MAX_TIME_RULE_INTERVALS = 1_000;
+export const MAX_TIME_RULE_EVALUATION_MINUTES = 45 * 24 * 60;
+
+function evaluationBudgetExceeded(input: TimeRuleEvaluationInput): boolean {
+  if (input.intervals.length > MAX_TIME_RULE_INTERVALS) return true;
+  let totalMinutes = 0;
+  for (const interval of input.intervals) {
+    const duration = new Date(interval.end).getTime() - new Date(interval.start).getTime();
+    if (Number.isFinite(duration) && duration > 0) totalMinutes += duration / 60_000;
+    if (totalMinutes > MAX_TIME_RULE_EVALUATION_MINUTES) return true;
+  }
+  return false;
+}
+
+function budgetExceededResult(input: TimeRuleEvaluationInput): TimeRuleEvaluationResult {
+  return {
+    actualHours: 0,
+    deltaHours: roundToTwo(-input.targetHours),
+    violations: [
+      toViolation({
+        code: 'TIME_EVALUATION_LIMIT_EXCEEDED',
+        message: 'Time-rule evaluation exceeds the supported computation budget.',
+        context: {
+          intervalCount: input.intervals.length,
+          maxIntervals: MAX_TIME_RULE_INTERVALS,
+          maxMinutes: MAX_TIME_RULE_EVALUATION_MINUTES,
+        },
+      }),
+    ],
+    warnings: [],
+    surchargeMinutes: [],
+  };
+}
+
 /** Evaluate ArbZG / TV-L time-tracking rules for a set of work intervals. */
 export function evaluateTimeRules(
   input: TimeRuleEvaluationInput,
   policy: TimeEnginePolicy = {},
 ): TimeRuleEvaluationResult {
+  if (evaluationBudgetExceeded(input)) return budgetExceededResult(input);
+
   const breakRule = policy.breakRule ?? DEFAULT_BREAK_RULE;
   const maxHoursRule = policy.maxHoursRule ?? DEFAULT_MAX_HOURS_RULE;
   const restRule = policy.restRule ?? DEFAULT_REST_RULE;

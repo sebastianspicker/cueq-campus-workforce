@@ -8,7 +8,12 @@ import {
   NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
-import { DocumentObjectStorage, type DocumentObjectManifest, type Prisma } from '@cueq/database';
+import {
+  DocumentObjectStorage,
+  validateDocumentContent,
+  type DocumentObjectManifest,
+  type Prisma,
+} from '@cueq/database';
 import { CreatePersonnelDocumentSchema } from '@cueq/contracts';
 import { PrismaService } from '../../persistence/prisma.service.js';
 import { parseRequest } from '../../platform/http/validation/zod-validation.pipe.js';
@@ -35,6 +40,22 @@ function storage() {
     return DocumentObjectStorage.fromEnvironment();
   } catch {
     throw new ServiceUnavailableException('Private document storage is not configured.');
+  }
+}
+
+function assertValidUpload(content: Buffer, declaredType: string): void {
+  try {
+    validateDocumentContent(content, declaredType);
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      ['DOCUMENT_SIZE_INVALID', 'DOCUMENT_TYPE_INVALID'].includes(error.message)
+    ) {
+      throw new BadRequestException(
+        'Upload must be a PDF, PNG or JPEG of at most 10 MiB with a matching file signature.',
+      );
+    }
+    throw error;
   }
 }
 
@@ -98,6 +119,7 @@ export class DocumentCommandsService {
   ) {
     await assertDocumentScope(this.prisma, actorId, 'documents.manage', documentId);
     const objects = storage();
+    assertValidUpload(content, declaredType);
     const upload = await this.prisma.documentUpload.create({
       data: { documentId, actorId, objectKey: randomUUID() + '.enc' },
     });

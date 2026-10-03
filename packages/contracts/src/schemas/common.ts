@@ -20,6 +20,29 @@ export const isDateTimeInstantBefore = (left: string, right: string): boolean =>
 export const isDateTimeInstantOnOrBefore = (left: string, right: string): boolean =>
   compareDateTimeInstants(left, right) <= 0;
 
+/** Maximum elapsed time accepted for one persisted booking-like work interval. */
+export const MAX_BOOKING_DURATION_MS = 7 * 24 * 60 * 60 * 1000;
+
+export const isBookingDurationAllowed = (start: string | Date, end: string | Date): boolean =>
+  new Date(end).getTime() - new Date(start).getTime() <= MAX_BOOKING_DURATION_MS;
+
+export function validateBookingDuration(
+  input: { startTime?: string; endTime?: string },
+  ctx: z.RefinementCtx,
+): void {
+  if (
+    input.startTime &&
+    input.endTime &&
+    !isBookingDurationAllowed(input.startTime, input.endTime)
+  ) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Booking duration must not exceed 7 days',
+      path: ['endTime'],
+    });
+  }
+}
+
 export function validateOptionalDateTimeRange(
   input: { startTime?: string; endTime?: string },
   ctx: z.RefinementCtx,

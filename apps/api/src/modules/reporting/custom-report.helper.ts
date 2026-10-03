@@ -46,11 +46,21 @@ function buildCustomPreviewResponse(
   };
 }
 
-export function customReportOptions() {
+export function customReportOptions(includeExactOvertime: boolean) {
   return CustomReportOptionsSchema.parse({
-    reportTypes: ['TEAM_ABSENCE', 'OE_OVERTIME', 'CLOSING_COMPLETION'],
+    reportTypes: [
+      'TEAM_ABSENCE',
+      ...(includeExactOvertime ? (['OE_OVERTIME'] as const) : []),
+      'CLOSING_COMPLETION',
+    ],
     groupBy: ['ORGANIZATION_UNIT', 'NONE'],
-    metrics: ['requests', 'days', 'people', 'totalOvertimeHours', 'completionRate', 'exported'],
+    metrics: [
+      'requests',
+      'days',
+      ...(includeExactOvertime ? (['people', 'totalOvertimeHours'] as const) : []),
+      'completionRate',
+      'exported',
+    ],
   });
 }
 

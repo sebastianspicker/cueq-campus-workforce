@@ -7,10 +7,11 @@ import { DocumentQueryService } from './document-query.service.js';
 
 function fixture() {
   const tx = {
-    $queryRaw: vi.fn(async () => []),
+    $queryRaw: vi.fn(async (): Promise<Array<{ id: string }>> => []),
     personnelDocument: { findUniqueOrThrow: vi.fn() },
     personnelDocumentVersion: { findMany: vi.fn(), findFirst: vi.fn() },
     documentAcknowledgement: { create: vi.fn(), findUnique: vi.fn() },
+    documentUpload: { create: vi.fn() },
   };
   const prisma = {
     ...tx,
@@ -54,5 +55,23 @@ describe('document authorization before metadata, objects and acknowledgements',
     expect(tx.personnelDocumentVersion.findFirst).not.toHaveBeenCalled();
     expect(tx.documentAcknowledgement.create).not.toHaveBeenCalled();
     expect(audit.appendAudit).not.toHaveBeenCalled();
+  });
+
+  it('rejects invalid bytes before creating a durable upload intent', async () => {
+    const { tx, commands } = fixture();
+    tx.$queryRaw.mockResolvedValueOnce([{ id: 'document-1' }]);
+    vi.stubEnv('DOCUMENT_STORAGE_ROOT', '/private/tmp/cueq-document-test');
+    vi.stubEnv('DOCUMENT_ACTIVE_KEY_ID', 'test-key');
+    vi.stubEnv(
+      'DOCUMENT_ENCRYPTION_KEYS',
+      JSON.stringify({ 'test-key': Buffer.alloc(32).toString('base64') }),
+    );
+
+    await expect(
+      commands.upload('actor', 'document-1', 0, Buffer.from('not-a-pdf'), 'application/pdf'),
+    ).rejects.toMatchObject({ status: 400 });
+
+    expect(tx.documentUpload.create).not.toHaveBeenCalled();
+    vi.unstubAllEnvs();
   });
 });

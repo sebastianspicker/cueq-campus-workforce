@@ -45,7 +45,7 @@ export class ReportsController {
   }
 
   @Get('oe-overtime')
-  @Roles(Role.TEAM_LEAD, Role.HR, Role.ADMIN, Role.DATA_PROTECTION, Role.WORKS_COUNCIL)
+  @Roles(Role.HR, Role.ADMIN)
   @ApiOperation({
     summary: 'Organization-unit overtime report with privacy suppression guardrails',
   })

@@ -40,15 +40,15 @@ export function createPgTools({ execFileSync, postgresClientImage }) {
     if (connection.needsHostGateway) {
       dockerArgs.push('--add-host', 'host.docker.internal:host-gateway');
     }
-    dockerArgs.push(
-      '-e',
-      `PGPASSWORD=${connection.password}`,
-      '-v',
-      `${tempDir}:/backup`,
-      postgresClientImage,
-      ...args,
-    );
-    execFileSync('docker', dockerArgs, { stdio: 'pipe' });
+    dockerArgs.push('-e', 'PGPASSWORD', '-v', `${tempDir}:/backup`, postgresClientImage, ...args);
+    try {
+      execFileSync('docker', dockerArgs, {
+        stdio: 'pipe',
+        env: { ...process.env, PGPASSWORD: connection.password },
+      });
+    } catch {
+      throw new Error('PostgreSQL client command failed.');
+    }
   }
 
   function runPsql(connection, database, sql, tempDir) {

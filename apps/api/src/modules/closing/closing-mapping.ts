@@ -48,7 +48,13 @@ export function mapClosingPeriodResponse(period: {
   periodStart: Date;
   periodEnd: Date;
   status: ClosingStatus;
-  exportRuns: unknown;
+  exportRuns: Array<{
+    id: string;
+    format: string;
+    recordCount: number;
+    checksum: string;
+    exportedAt: Date;
+  }>;
   closedAt: Date | null;
   closedById: string | null;
   leadApprovedAt: Date | null;
@@ -66,7 +72,13 @@ export function mapClosingPeriodResponse(period: {
     periodStart: period.periodStart.toISOString(),
     periodEnd: period.periodEnd.toISOString(),
     status: toCoreClosingStatus(period.status),
-    exportRuns: period.exportRuns,
+    exportRuns: period.exportRuns.map((run) => ({
+      id: run.id,
+      format: run.format,
+      recordCount: run.recordCount,
+      checksum: run.checksum,
+      exportedAt: run.exportedAt.toISOString(),
+    })),
     closedAt: period.closedAt?.toISOString() ?? null,
     closedById: period.closedById,
     leadApprovedAt: period.leadApprovedAt?.toISOString() ?? null,

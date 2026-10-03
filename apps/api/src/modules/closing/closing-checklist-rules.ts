@@ -1,5 +1,6 @@
 /** Evaluates pure booking-derived metrics for the closing checklist. */
 import { TimeTypeCategory } from '@cueq/database';
+import { MAX_BOOKING_DURATION_MS } from '@cueq/contracts';
 import { evaluateTimeRules } from '@cueq/domain';
 import { DEFAULT_MAX_HOURS_RULE, DEFAULT_REST_RULE } from '@cueq/policy';
 import { closingBookingGapMinutes } from './closing-config.js';
@@ -46,14 +47,27 @@ function policyIntervalType(timeType: ClosingRuleTimeType): 'WORK' | 'DEPLOYMENT
   return timeType === TimeTypeCategory.DEPLOYMENT ? 'DEPLOYMENT' : 'WORK';
 }
 
-function ruleBookingsByPerson(bookings: ClosingChecklistBooking[]): Map<string, RuleBooking[]> {
+function ruleBookingsByPerson(
+  bookings: ClosingChecklistBooking[],
+  periodStart: Date,
+  periodEnd: Date,
+): Map<string, RuleBooking[]> {
   const byPerson = new Map<string, RuleBooking[]>();
   for (const booking of bookings) {
     if (!booking.endTime || !isClosingRuleTimeType(booking.timeType.category)) continue;
     const entries = byPerson.get(booking.personId) ?? [];
+    const isOversized =
+      booking.endTime.getTime() - booking.startTime.getTime() > MAX_BOOKING_DURATION_MS;
+    const startTime = isOversized
+      ? new Date(Math.max(booking.startTime.getTime(), periodStart.getTime()))
+      : booking.startTime;
+    const endTime = isOversized
+      ? new Date(Math.min(booking.endTime.getTime(), periodEnd.getTime()))
+      : booking.endTime;
+    if (startTime >= endTime) continue;
     entries.push({
-      startTime: booking.startTime,
-      endTime: booking.endTime,
+      startTime,
+      endTime,
       timeType: booking.timeType.category,
     });
     byPerson.set(booking.personId, entries);
@@ -113,7 +127,11 @@ function ruleViolationCount(
   periodId: string,
   timeThresholds: ClosingTimeThresholds,
 ): number {
-  let violations = bookings.filter((booking) => booking.endTime === null).length;
+  let violations = bookings.filter(
+    (booking) =>
+      booking.endTime === null ||
+      booking.endTime.getTime() - booking.startTime.getTime() > MAX_BOOKING_DURATION_MS,
+  ).length;
   for (const entries of bookingsByPerson.values()) {
     violations += policyViolationCount(entries, periodId, timeThresholds);
   }
@@ -126,13 +144,15 @@ export function calculateClosingBookingMetrics(
   approvedAbsences: Array<{ assignmentId: string }>,
   appointmentCount: number,
   periodId: string,
+  periodStart: Date,
+  periodEnd: Date,
   timeThresholds: ClosingTimeThresholds,
 ) {
   const coveredAssignmentIds = new Set([
     ...coverageBookings.filter(isCompletedWorkBooking).map((booking) => booking.assignmentId),
     ...approvedAbsences.map((absence) => absence.assignmentId),
   ]);
-  const bookingsByPerson = ruleBookingsByPerson(ruleBookings);
+  const bookingsByPerson = ruleBookingsByPerson(ruleBookings, periodStart, periodEnd);
   return {
     missingBookings: Math.max(appointmentCount - coveredAssignmentIds.size, 0),
     bookingGaps: bookingGapCount(bookingsByPerson),

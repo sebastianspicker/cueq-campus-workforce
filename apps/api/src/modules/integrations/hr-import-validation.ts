@@ -5,6 +5,7 @@ import type { HrMasterRecord } from './hr-master-provider.port.js';
 
 const DEFAULT_WEEKLY_HOURS = 39.83;
 const DEFAULT_DAILY_TARGET_HOURS = 7.97;
+export const MAX_HR_IMPORT_RECORDS = 10_000;
 
 export type ParsedHrImportRow = HrMasterRecord & {
   supervisorExternalId?: string;
@@ -135,6 +136,12 @@ export function validateHrImportRows(rows: ParsedHrImportRow[]): {
   rows: ValidatedHrImportRow[];
   errors: string[];
 } {
+  if (rows.length > MAX_HR_IMPORT_RECORDS) {
+    return {
+      rows: [],
+      errors: [`HR import exceeds the maximum of ${MAX_HR_IMPORT_RECORDS} records.`],
+    };
+  }
   const errors: string[] = [];
   const seenExternalIds = new Set<string>();
   const seenEmails = new Set<string>();
@@ -147,20 +154,32 @@ export function validateHrImportRows(rows: ParsedHrImportRow[]): {
   }
 
   const byExternalId = new Map(validatedRows.map((row) => [row.externalId, row]));
+  const leadsToCycle = new Map<string, boolean>();
   for (const row of validatedRows) {
-    if (row.supervisorExternalId === row.externalId) {
-      errors.push(`Supervisor cycle detected for externalId="${row.externalId}".`);
-      continue;
-    }
-    const visited = new Set([row.externalId]);
-    let supervisorExternalId = row.supervisorExternalId;
-    while (supervisorExternalId && byExternalId.has(supervisorExternalId)) {
-      if (visited.has(supervisorExternalId)) {
-        errors.push(`Supervisor cycle detected for externalId="${row.externalId}".`);
+    if (leadsToCycle.has(row.externalId)) continue;
+    const path: string[] = [];
+    const pathIndexes = new Map<string, number>();
+    let currentId: string | undefined = row.externalId;
+    let cyclic = false;
+    while (currentId && byExternalId.has(currentId)) {
+      const resolved = leadsToCycle.get(currentId);
+      if (resolved !== undefined) {
+        cyclic = resolved;
         break;
       }
-      visited.add(supervisorExternalId);
-      supervisorExternalId = byExternalId.get(supervisorExternalId)?.supervisorExternalId;
+      if (pathIndexes.has(currentId)) {
+        cyclic = true;
+        break;
+      }
+      pathIndexes.set(currentId, path.length);
+      path.push(currentId);
+      currentId = byExternalId.get(currentId)?.supervisorExternalId;
+    }
+    for (const pathId of path) leadsToCycle.set(pathId, cyclic);
+  }
+  for (const row of validatedRows) {
+    if (leadsToCycle.get(row.externalId)) {
+      errors.push(`Supervisor cycle detected for externalId="${row.externalId}".`);
     }
   }
 

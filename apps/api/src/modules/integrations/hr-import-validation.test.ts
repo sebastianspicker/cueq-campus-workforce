@@ -51,4 +51,25 @@ describe('HR import employment date validation', () => {
       'employmentEndDate precedes employmentStartDate for externalId="employee-1".',
     );
   });
+
+  it('validates a long acyclic supervisor chain and marks every path into a cycle', () => {
+    const chain = Array.from({ length: 2_000 }, (_, index) => ({
+      ...baseRow,
+      externalId: `employee-${index}`,
+      email: `employee-${index}@example.test`,
+      supervisorExternalId: index === 0 ? undefined : `employee-${index - 1}`,
+    }));
+    expect(validateHrImportRows(chain).errors).toEqual([]);
+
+    const cyclic = validateHrImportRows([
+      { ...baseRow, externalId: 'a', email: 'a@example.test', supervisorExternalId: 'b' },
+      { ...baseRow, externalId: 'b', email: 'b@example.test', supervisorExternalId: 'c' },
+      { ...baseRow, externalId: 'c', email: 'c@example.test', supervisorExternalId: 'b' },
+    ]);
+    expect(cyclic.errors).toEqual([
+      'Supervisor cycle detected for externalId="a".',
+      'Supervisor cycle detected for externalId="b".',
+      'Supervisor cycle detected for externalId="c".',
+    ]);
+  });
 });

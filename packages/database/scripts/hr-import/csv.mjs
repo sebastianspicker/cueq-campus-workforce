@@ -1,3 +1,7 @@
+const MAX_CSV_COLUMNS = 100;
+const MAX_CSV_DATA_ROWS = 10_000;
+const MAX_CSV_OUTPUT_CELLS = 250_000;
+
 function normalizeRow(row) {
   return row.map((cell) => String(cell).trim());
 }
@@ -8,6 +12,9 @@ function pushRow(rows, row) {
     return;
   }
   rows.push(normalized);
+  if (rows.length > MAX_CSV_DATA_ROWS + 1) {
+    throw new Error(`CSV parse error: at most ${MAX_CSV_DATA_ROWS} data rows are allowed.`);
+  }
 }
 
 function consumeQuote(csv, index, state) {
@@ -44,6 +51,9 @@ function parseCsvRows(csv) {
 
     if (char === ',' && !state.inQuotes) {
       state.row.push(state.current);
+      if (state.row.length >= MAX_CSV_COLUMNS) {
+        throw new Error(`CSV parse error: at most ${MAX_CSV_COLUMNS} columns are allowed.`);
+      }
       state.current = '';
       continue;
     }
@@ -83,6 +93,15 @@ export function parseCsvRecords(csv) {
   }
   if (headers.some((header) => header.length === 0)) {
     throw new Error('CSV parse error: header names must be non-empty.');
+  }
+  if (headers.length > MAX_CSV_COLUMNS) {
+    throw new Error(`CSV parse error: at most ${MAX_CSV_COLUMNS} columns are allowed.`);
+  }
+  if (dataRows.length > MAX_CSV_DATA_ROWS) {
+    throw new Error(`CSV parse error: at most ${MAX_CSV_DATA_ROWS} data rows are allowed.`);
+  }
+  if (headers.length * dataRows.length > MAX_CSV_OUTPUT_CELLS) {
+    throw new Error(`CSV parse error: at most ${MAX_CSV_OUTPUT_CELLS} output cells are allowed.`);
   }
   if (new Set(headers).size !== headers.length) {
     throw new Error('CSV parse error: duplicate header names are not allowed.');

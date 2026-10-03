@@ -8,6 +8,7 @@ import {
   ClosingPeriodMonthQuerySchema,
   CreateOnCallDeploymentSchema,
   CreateOnCallRotationSchema,
+  CreateBookingSchema,
   CreateWorkflowDelegationRuleSchema,
   DateRangeSchema,
   ListOnCallRotationsQuerySchema,
@@ -184,6 +185,31 @@ describe('cross-feature validation behavior', () => {
   it('rejects reverse time-rule intervals before policy evaluation', () => {
     expect(
       TimeRuleIntervalSchema.safeParse({ start: LATER, end: EARLIER, type: 'WORK' }).success,
+    ).toBe(false);
+  });
+
+  it('bounds booking and time-rule computation duration', () => {
+    expect(
+      CreateBookingSchema.safeParse({
+        personId: IDS.person,
+        timeTypeId: IDS.rotation,
+        startTime: '2026-01-01T00:00:00.000Z',
+        endTime: '2026-01-09T00:00:00.000Z',
+        source: 'WEB',
+      }).success,
+    ).toBe(false);
+    expect(
+      TimeRuleEvaluationRequestSchema.safeParse({
+        week: 'oversized',
+        targetHours: 0,
+        intervals: [
+          {
+            start: '2026-01-01T00:00:00.000Z',
+            end: '2026-02-16T00:00:00.000Z',
+            type: 'WORK',
+          },
+        ],
+      }).success,
     ).toBe(false);
   });
 });

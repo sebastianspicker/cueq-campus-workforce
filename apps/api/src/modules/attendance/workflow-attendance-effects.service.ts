@@ -1,7 +1,11 @@
 /** Owns booking and time-account mutations caused by approved workflows. */
 import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { WorkflowType } from '@cueq/database';
-import { BookingCorrectionSchema, OvertimeApprovalRequestSchema } from '@cueq/contracts';
+import {
+  BookingCorrectionSchema,
+  isBookingDurationAllowed,
+  OvertimeApprovalRequestSchema,
+} from '@cueq/contracts';
 import type {
   AttendanceWorkflowEffectsPort,
   WorkflowEffectInput,
@@ -38,6 +42,9 @@ function correctedBookingRange(
   const endTime = correction.endTime ? new Date(correction.endTime) : booking.endTime;
   if (endTime && startTime >= endTime) {
     throw new BadRequestException('Corrected booking endTime must be after startTime.');
+  }
+  if (endTime && !isBookingDurationAllowed(startTime, endTime)) {
+    throw new BadRequestException('Corrected booking duration must not exceed 7 days.');
   }
   return { startTime, endTime };
 }

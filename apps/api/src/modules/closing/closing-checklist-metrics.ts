@@ -67,6 +67,8 @@ export async function calculateClosingChecklistMetrics(
     approvedAbsences,
     population.assignmentIds.length,
     period.id,
+    period.periodStart,
+    period.periodEnd,
     timeThresholds,
   );
   const [requests, rosterMismatches, balanceAnomalies, missingTimeAccounts] = await Promise.all([

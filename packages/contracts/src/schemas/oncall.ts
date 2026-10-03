@@ -5,6 +5,7 @@ import {
   DateTimeSchema,
   IdSchema,
   isDateTimeInstantBefore,
+  validateBookingDuration,
   validateOptionalDateTimeQueryRange,
   validateOptionalDateTimeRange,
 } from './common.js';
@@ -93,9 +94,9 @@ export const CreateOnCallDeploymentSchema = z
     eventReference: z.string().max(200).optional(),
     description: z.string().max(2000).optional(),
   })
-  .refine((input) => !input.endTime || isDateTimeInstantBefore(input.startTime, input.endTime), {
-    message: 'endTime must be after startTime',
-    path: ['endTime'],
+  .superRefine((input, ctx) => {
+    validateOptionalDateTimeRange(input, ctx, 'endTime must be after startTime');
+    validateBookingDuration(input, ctx);
   });
 export type CreateOnCallDeployment = z.infer<typeof CreateOnCallDeploymentSchema>;
 

@@ -1,4 +1,4 @@
-import { ForbiddenException } from '@nestjs/common';
+import { ConflictException, ForbiddenException } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
 import { LifecycleInstanceService } from './lifecycle-instance.service.js';
 
@@ -91,6 +91,17 @@ describe('LifecycleInstanceService activation', () => {
     });
     expect(tx.lifecycleTemplate.findUnique).not.toHaveBeenCalled();
     expect(tx.lifecycleTask.create).not.toHaveBeenCalled();
+    expect(tx.$queryRaw).toHaveBeenCalledTimes(4);
+
+    await expect(
+      service.activate(ids.actor, {
+        templateId: ids.template,
+        personId: ids.person,
+        assignmentId: ids.assignment,
+        eventKey: 'manual:onboarding',
+        baseDate: '2026-02-01',
+      }),
+    ).rejects.toBeInstanceOf(ConflictException);
   });
 
   it('rejects an unauthorized appointment before resolving private terms', async () => {

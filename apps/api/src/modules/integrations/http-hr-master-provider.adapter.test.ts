@@ -24,14 +24,16 @@ describe('HttpHrMasterProvider employment dates', () => {
     process.env.HR_MASTER_API_URL = 'https://hr.example.test/employees';
     vi.stubGlobal(
       'fetch',
-      vi.fn().mockResolvedValue({
-        ok: true,
-        json: vi
-          .fn()
-          .mockResolvedValue([
-            { ...record, employmentStartDate: '2026-09-08', employmentEndDate: '2027-09-07' },
-          ]),
-      }),
+      vi
+        .fn()
+        .mockResolvedValue(
+          new Response(
+            JSON.stringify([
+              { ...record, employmentStartDate: '2026-09-08', employmentEndDate: '2027-09-07' },
+            ]),
+            { headers: { 'content-type': 'application/json' } },
+          ),
+        ),
     );
 
     await expect(new HttpHrMasterProvider().fetchMasterRecords()).resolves.toEqual([
@@ -46,14 +48,38 @@ describe('HttpHrMasterProvider employment dates', () => {
     process.env.HR_MASTER_API_URL = 'https://hr.example.test/employees';
     vi.stubGlobal(
       'fetch',
-      vi.fn().mockResolvedValue({
-        ok: true,
-        json: vi.fn().mockResolvedValue([{ ...record, employmentStartDate: '2026-02-30' }]),
-      }),
+      vi
+        .fn()
+        .mockResolvedValue(
+          new Response(JSON.stringify([{ ...record, employmentStartDate: '2026-02-30' }])),
+        ),
     );
 
     await expect(new HttpHrMasterProvider().fetchMasterRecords()).rejects.toBeInstanceOf(
       BadGatewayException,
     );
+  });
+
+  it('rejects a streamed response once it crosses the byte ceiling', async () => {
+    process.env.HR_MASTER_API_URL = 'https://hr.example.test/employees';
+    const chunk = new TextEncoder().encode('x'.repeat(1_100_000));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(
+          new ReadableStream({
+            start(controller) {
+              controller.enqueue(chunk);
+              controller.enqueue(chunk);
+              controller.close();
+            },
+          }),
+        ),
+      ),
+    );
+
+    await expect(new HttpHrMasterProvider().fetchMasterRecords()).rejects.toMatchObject({
+      response: { message: 'HR master API response exceeds the size limit.' },
+    });
   });
 });

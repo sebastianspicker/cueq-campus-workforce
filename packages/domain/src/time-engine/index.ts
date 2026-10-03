@@ -1,5 +1,9 @@
 /** Public time-engine compatibility surface. */
-export { evaluateTimeRules } from './evaluate-time-rules.js';
+export {
+  evaluateTimeRules,
+  MAX_TIME_RULE_EVALUATION_MINUTES,
+  MAX_TIME_RULE_INTERVALS,
+} from './evaluate-time-rules.js';
 export type {
   TimeEnginePolicy,
   TimeRuleEvaluationInput,

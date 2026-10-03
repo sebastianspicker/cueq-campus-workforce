@@ -28,6 +28,14 @@ import {
 } from '../../platform/transactions/transaction-lock.helper.js';
 import { TIME_ACCOUNTS_PORT, type TimeAccountsPort } from '../attendance/public.js';
 
+const closingExportMetadataSelect = {
+  id: true,
+  format: true,
+  recordCount: true,
+  checksum: true,
+  exportedAt: true,
+} as const;
+
 function isBusyClosingPeriod(error: unknown): boolean {
   if (!(error instanceof ConflictException)) return false;
   const response = error.getResponse();
@@ -195,6 +203,7 @@ export class ClosingDomainService {
       },
       include: {
         exportRuns: {
+          select: closingExportMetadataSelect,
           orderBy: { exportedAt: 'desc' },
           take: 1,
         },
@@ -213,7 +222,12 @@ export class ClosingDomainService {
 
     const period = await this.prisma.closingPeriod.findUnique({
       where: { id: closingPeriodId },
-      include: { exportRuns: { orderBy: { exportedAt: 'desc' } } },
+      include: {
+        exportRuns: {
+          select: closingExportMetadataSelect,
+          orderBy: { exportedAt: 'desc' },
+        },
+      },
     });
     if (!period) {
       throw new NotFoundException('Closing period not found.');

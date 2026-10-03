@@ -29,6 +29,9 @@ export const REPORT_ALLOWED_ROLES = new Set<Role>([
   Role.WORKS_COUNCIL,
 ]);
 
+/** Roles allowed to receive exact cross-person overtime and balance aggregates. */
+export const OVERTIME_REPORT_ALLOWED_ROLES = new Set<Role>([Role.HR, Role.ADMIN]);
+
 /** Roles allowed to request audit and compliance summaries. */
 export const SENSITIVE_REPORT_ALLOWED_ROLES = new Set<Role>([
   Role.HR,

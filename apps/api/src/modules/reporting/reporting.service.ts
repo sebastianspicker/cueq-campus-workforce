@@ -3,7 +3,7 @@ import { ForbiddenException, Inject, Injectable } from '@nestjs/common';
 import type { AuthenticatedIdentity } from '../../platform/auth/auth.types.js';
 import { ReportingAnalyticsHelper } from './reporting-analytics.helper.js';
 import { ReportingComplianceHelper } from './reporting-compliance.helper.js';
-import { REPORT_ALLOWED_ROLES } from '../people/public.js';
+import { OVERTIME_REPORT_ALLOWED_ROLES, REPORT_ALLOWED_ROLES } from '../people/public.js';
 import { customReportOptions, customReportPreview } from './custom-report.helper.js';
 
 @Injectable()
@@ -39,7 +39,7 @@ export class ReportingService {
       throw new ForbiddenException('Role does not permit access to reports.');
     }
 
-    return customReportOptions();
+    return customReportOptions(OVERTIME_REPORT_ALLOWED_ROLES.has(user.role));
   }
 
   async reportCustomPreview(user: AuthenticatedIdentity, query: unknown) {

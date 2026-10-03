@@ -2,6 +2,10 @@
 import { consumeRowBreak, type CsvParserState } from './csv-parser-state.js';
 import { consumeDelimiter, consumeLineBreak } from './csv-token-consumers.js';
 
+const MAX_CSV_COLUMNS = 100;
+const MAX_CSV_DATA_ROWS = 10_000;
+const MAX_CSV_OUTPUT_CELLS = 250_000;
+
 function consumeQuote(state: CsvParserState, next: string | undefined): number {
   if (state.inQuotes && next === '"') {
     state.current += '"';
@@ -26,6 +30,12 @@ function parseCsvRows(csv: string): string[][] {
   for (let index = 0; index < csv.length; index += 1) {
     const char = csv[index];
     if (char) index += consumeCharacter(state, char, csv[index + 1]);
+    if (state.row.length >= MAX_CSV_COLUMNS) {
+      throw new Error(`CSV parse error: at most ${MAX_CSV_COLUMNS} columns are allowed.`);
+    }
+    if (state.rows.length > MAX_CSV_DATA_ROWS + 1) {
+      throw new Error(`CSV parse error: at most ${MAX_CSV_DATA_ROWS} data rows are allowed.`);
+    }
   }
 
   if (state.inQuotes) {
@@ -60,6 +70,15 @@ export function parseCsvRecords(csv: string): {
   }
   if (headers.length === 0) {
     return { headers: [], rows: [] };
+  }
+  if (headers.length > MAX_CSV_COLUMNS) {
+    throw new Error(`CSV parse error: at most ${MAX_CSV_COLUMNS} columns are allowed.`);
+  }
+  if (dataRows.length > MAX_CSV_DATA_ROWS) {
+    throw new Error(`CSV parse error: at most ${MAX_CSV_DATA_ROWS} data rows are allowed.`);
+  }
+  if (headers.length * dataRows.length > MAX_CSV_OUTPUT_CELLS) {
+    throw new Error(`CSV parse error: at most ${MAX_CSV_OUTPUT_CELLS} output cells are allowed.`);
   }
   if (headers.some((header) => header.length === 0)) {
     throw new Error('CSV parse error: header names must be non-empty.');

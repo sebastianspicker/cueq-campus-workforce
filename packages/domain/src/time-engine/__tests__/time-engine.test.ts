@@ -212,4 +212,25 @@ describe('evaluateTimeRules', () => {
       },
     ]);
   });
+
+  it('returns immediately with a violation when the computation budget is exceeded', () => {
+    const result = evaluateTimeRules({
+      week: 'oversized',
+      targetHours: 0,
+      timezone: 'Europe/Berlin',
+      intervals: [
+        {
+          start: '1900-01-01T00:00:00.000Z',
+          end: '2100-01-01T00:00:00.000Z',
+          type: 'WORK',
+        },
+      ],
+      holidayDates: [],
+    });
+
+    expect(result.actualHours).toBe(0);
+    expect(result.violations).toEqual([
+      expect.objectContaining({ code: 'TIME_EVALUATION_LIMIT_EXCEEDED' }),
+    ]);
+  });
 });

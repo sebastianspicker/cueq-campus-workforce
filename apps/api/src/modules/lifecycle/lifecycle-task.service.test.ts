@@ -49,6 +49,9 @@ describe('LifecycleTaskService transitions', () => {
     expect(tx.lifecycleTask.update).not.toHaveBeenCalled();
     expect(tx.lifecycleTaskHistory.create).not.toHaveBeenCalled();
     expect(audit.appendAudit).not.toHaveBeenCalled();
+    expect(tx.$queryRaw).toHaveBeenCalledTimes(3);
+    const instanceLock = tx.$queryRaw.mock.calls[0]?.[0] as { strings?: readonly string[] };
+    expect(instanceLock.strings?.join('')).toContain('FOR UPDATE OF i');
   });
 
   it('rejects reopening while a completed dependent exists', async () => {

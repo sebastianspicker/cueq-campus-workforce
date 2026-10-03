@@ -33,13 +33,30 @@ export const TimeRuleIntervalSchema = z
   });
 export type TimeRuleInterval = z.infer<typeof TimeRuleIntervalSchema>;
 
-export const TimeRuleEvaluationRequestSchema = z.object({
-  week: z.string(),
-  targetHours: z.number(),
-  timezone: TimeZoneSchema.optional(),
-  holidayDates: z.array(DateSchema).optional(),
-  intervals: z.array(TimeRuleIntervalSchema).min(1),
-});
+export const MAX_TIME_RULE_INTERVALS = 1_000;
+export const MAX_TIME_RULE_EVALUATION_MINUTES = 45 * 24 * 60;
+
+export const TimeRuleEvaluationRequestSchema = z
+  .object({
+    week: z.string(),
+    targetHours: z.number(),
+    timezone: TimeZoneSchema.optional(),
+    holidayDates: z.array(DateSchema).optional(),
+    intervals: z.array(TimeRuleIntervalSchema).min(1).max(MAX_TIME_RULE_INTERVALS),
+  })
+  .superRefine((input, ctx) => {
+    const totalMinutes = input.intervals.reduce(
+      (sum, interval) => sum + (Date.parse(interval.end) - Date.parse(interval.start)) / 60_000,
+      0,
+    );
+    if (totalMinutes > MAX_TIME_RULE_EVALUATION_MINUTES) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `Total interval duration must not exceed ${MAX_TIME_RULE_EVALUATION_MINUTES} minutes`,
+        path: ['intervals'],
+      });
+    }
+  });
 export type TimeRuleEvaluationRequest = z.infer<typeof TimeRuleEvaluationRequestSchema>;
 
 export const RuleViolationSchema = z.object({

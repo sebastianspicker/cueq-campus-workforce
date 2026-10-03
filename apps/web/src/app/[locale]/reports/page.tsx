@@ -18,7 +18,7 @@ import { PageShell } from '../../../components/PageShell';
 import { SectionCard } from '../../../components/SectionCard';
 import { StatusBanner } from '../../../components/StatusBanner';
 import { useApiContext } from '../../../platform/http/api-context';
-import { canLoadSensitiveReportSummaries } from './report-access';
+import { canLoadExactOvertimeReport, canLoadSensitiveReportSummaries } from './report-access';
 import {
   ReportResults,
   type AuditSummaryReport,
@@ -100,9 +100,12 @@ export default function ReportsPage() {
     resetReportState();
     try {
       const includeSensitiveSummaries = canLoadSensitiveReportSummaries(profile?.role);
+      const includeExactOvertime = canLoadExactOvertimeReport(profile?.role);
       const [team, overtime, closing, audit, compliance] = await Promise.all([
         apiRequest(`/v1/reports/team-absence?${buildQuery(true)}`, TeamAbsenceReportSchema),
-        apiRequest(`/v1/reports/oe-overtime?${buildQuery(true)}`, OeOvertimeReportSchema),
+        includeExactOvertime
+          ? apiRequest(`/v1/reports/oe-overtime?${buildQuery(true)}`, OeOvertimeReportSchema)
+          : Promise.resolve(null),
         apiRequest(
           `/v1/reports/closing-completion?${buildQuery(false)}`,
           ClosingCompletionReportSchema,

@@ -4,7 +4,7 @@ import { z } from 'zod';
 import {
   DateTimeSchema,
   IdSchema,
-  isDateTimeInstantBefore,
+  validateBookingDuration,
   validateOptionalDateTimeRange,
 } from './common.js';
 import { BookingSourceSchema, TimeTypeCategorySchema } from './time-type.js';
@@ -20,9 +20,9 @@ export const CreateBookingSchema = z
     note: z.string().max(1000).optional(),
     shiftId: IdSchema.optional(),
   })
-  .refine((input) => !input.endTime || isDateTimeInstantBefore(input.startTime, input.endTime), {
-    message: 'endTime must be after startTime',
-    path: ['endTime'],
+  .superRefine((input, ctx) => {
+    validateOptionalDateTimeRange(input, ctx, 'endTime must be after startTime');
+    validateBookingDuration(input, ctx);
   });
 export type CreateBooking = z.infer<typeof CreateBookingSchema>;
 
@@ -35,9 +35,10 @@ export const BookingCorrectionSchema = z
     timeTypeId: IdSchema.optional(),
     reason: z.string().min(10, 'Correction reason must be at least 10 characters'),
   })
-  .superRefine((input, ctx) =>
-    validateOptionalDateTimeRange(input, ctx, 'endTime must be after startTime'),
-  );
+  .superRefine((input, ctx) => {
+    validateOptionalDateTimeRange(input, ctx, 'endTime must be after startTime');
+    validateBookingDuration(input, ctx);
+  });
 export type BookingCorrection = z.infer<typeof BookingCorrectionSchema>;
 
 export const BookingSchema = z.object({

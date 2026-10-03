@@ -93,6 +93,13 @@ export class LifecycleTaskService {
   async complete(actorId: string, taskId: string, payload: unknown) {
     const input = parseRequest(CompleteLifecycleTaskSchema, payload);
     return this.prisma.$transaction(async (tx) => {
+      const instances = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+        SELECT i.id FROM lifecycle_instances i
+        JOIN lifecycle_tasks t ON t."instanceId" = i.id
+        WHERE t.id = ${taskId}
+        FOR UPDATE OF i
+      `);
+      if (!instances.length) throw new NotFoundException('Lifecycle task not found.');
       await tx.$queryRaw(Prisma.sql`
         SELECT id FROM lifecycle_tasks WHERE id = ${taskId} FOR UPDATE
       `);

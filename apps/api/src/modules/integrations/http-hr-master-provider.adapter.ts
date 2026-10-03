@@ -2,32 +2,73 @@
 import { BadGatewayException, ServiceUnavailableException } from '@nestjs/common';
 import { z } from 'zod';
 import type { HrMasterProviderPort, HrMasterRecord } from './hr-master-provider.port.js';
+import { MAX_HR_IMPORT_RECORDS } from './hr-import-validation.js';
+
+const MAX_HR_PROVIDER_RESPONSE_BYTES = 2_000_000;
+const boundedText = z.string().min(1).max(320);
 
 const HrMasterApiRecordSchema = z.object({
-  externalId: z.string().min(1),
-  firstName: z.string().min(1),
-  lastName: z.string().min(1),
-  email: z.string().email(),
-  role: z.string().min(1),
-  organizationUnit: z.string().min(1),
-  workTimeModel: z.string().min(1),
-  weeklyHours: z.string().min(1),
-  dailyTargetHours: z.string().min(1),
-  supervisorExternalId: z.string().min(1).optional(),
+  externalId: boundedText,
+  firstName: boundedText,
+  lastName: boundedText,
+  email: z.string().email().max(320),
+  role: boundedText,
+  organizationUnit: boundedText,
+  workTimeModel: boundedText,
+  weeklyHours: z.string().min(1).max(50),
+  dailyTargetHours: z.string().min(1).max(50),
+  supervisorExternalId: boundedText.optional(),
   employmentStartDate: z.string().date().optional(),
   employmentEndDate: z.string().date().optional(),
 });
 
 const HrMasterApiResponseSchema = z.union([
-  z.array(HrMasterApiRecordSchema),
+  z.array(HrMasterApiRecordSchema).max(MAX_HR_IMPORT_RECORDS),
   z.object({
-    records: z.array(HrMasterApiRecordSchema),
+    records: z.array(HrMasterApiRecordSchema).max(MAX_HR_IMPORT_RECORDS),
   }),
 ]);
 
 const DEFAULT_TIMEOUT_MS = 10_000;
 const MIN_TIMEOUT_MS = 100;
 const MAX_TIMEOUT_MS = 60_000;
+
+async function readBoundedJson(response: Response): Promise<unknown> {
+  const declaredLength = Number(response.headers.get('content-length'));
+  if (Number.isFinite(declaredLength) && declaredLength > MAX_HR_PROVIDER_RESPONSE_BYTES) {
+    throw new BadGatewayException('HR master API response exceeds the size limit.');
+  }
+  if (!response.body) {
+    throw new BadGatewayException('HR master API returned an empty response body.');
+  }
+
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let totalBytes = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (!value) continue;
+    totalBytes += value.byteLength;
+    if (totalBytes > MAX_HR_PROVIDER_RESPONSE_BYTES) {
+      await reader.cancel();
+      throw new BadGatewayException('HR master API response exceeds the size limit.');
+    }
+    chunks.push(value);
+  }
+
+  const bytes = new Uint8Array(totalBytes);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  try {
+    return JSON.parse(new TextDecoder().decode(bytes)) as unknown;
+  } catch {
+    throw new BadGatewayException('HR master API returned invalid JSON.');
+  }
+}
 
 function configuredUrl(rawUrl: string): URL {
   let parsed: URL;
@@ -92,7 +133,7 @@ export class HttpHrMasterProvider implements HrMasterProviderPort {
         throw new BadGatewayException(`HR master API returned ${response.status}.`);
       }
 
-      const json = (await response.json()) as unknown;
+      const json = await readBoundedJson(response);
       const parsed = HrMasterApiResponseSchema.safeParse(json);
       if (!parsed.success) {
         throw new BadGatewayException('HR master API returned an invalid payload schema.');
