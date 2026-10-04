@@ -5,7 +5,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        For suspected vulnerabilities, follow our [security policy](https://github.com/sebastianspicker/cueq/blob/main/SECURITY.md) instead of opening a public issue.
+        For suspected vulnerabilities, follow our [security policy](https://github.com/sebastianspicker/cueq-campus-workforce/blob/main/SECURITY.md) instead of opening a public issue.
   - type: textarea
     id: summary
     attributes:

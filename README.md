@@ -7,7 +7,7 @@ The project is in early development. Use sample data to try it locally. It is
 not ready to handle real employee records; see the
 [release status](RELEASE_STATUS.md) for current limitations.
 
-Try the [interactive GitHub Pages demo](https://sebastianspicker.github.io/cueq/).
+Try the [interactive GitHub Pages demo](https://sebastianspicker.github.io/cueq-campus-workforce/).
 No account or setup is required. All demo records are invented and changes stay
 in the current browser tab; the demo does not connect to the API.
 

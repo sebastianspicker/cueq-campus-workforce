@@ -1,11 +1,11 @@
 blank_issues_enabled: false
 contact_links:
   - name: Security vulnerability
-    url: https://github.com/sebastianspicker/cueq/security/advisories/new
+    url: https://github.com/sebastianspicker/cueq-campus-workforce/security/advisories/new
     about: Do not open public issues for suspected vulnerabilities.
   - name: Request a private reporting channel
     url: https://github.com/sebastianspicker
     about: Ask the maintainer for a private channel before sending sensitive details.
   - name: Security design
-    url: https://github.com/sebastianspicker/cueq/blob/main/docs/SECURITY.md
+    url: https://github.com/sebastianspicker/cueq-campus-workforce/blob/main/docs/SECURITY.md
     about: How cueq handles access, privacy, and audit records.

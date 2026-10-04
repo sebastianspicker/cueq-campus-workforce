@@ -2,7 +2,7 @@
 
 For setup questions, start with [Development](docs/DEVELOPMENT.md) and
 [Configuration](docs/CONFIGURATION.md). Search the
-[existing issues](https://github.com/sebastianspicker/cueq/issues) before opening
+[existing issues](https://github.com/sebastianspicker/cueq-campus-workforce/issues) before opening
 a new one.
 
 If you are stuck, open an issue with your operating system, commit or release,

@@ -8,12 +8,12 @@
   "author": "Sebastian J. Spicker",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/sebastianspicker/cueq.git"
+    "url": "git+https://github.com/sebastianspicker/cueq-campus-workforce.git"
   },
   "bugs": {
-    "url": "https://github.com/sebastianspicker/cueq/issues"
+    "url": "https://github.com/sebastianspicker/cueq-campus-workforce/issues"
   },
-  "homepage": "https://github.com/sebastianspicker/cueq#readme",
+  "homepage": "https://github.com/sebastianspicker/cueq-campus-workforce#readme",
   "scripts": {
     "prepare": "husky",
     "build": "turbo run build",

@@ -1,6 +1,6 @@
 # Browser demo
 
-The [GitHub Pages demo](https://sebastianspicker.github.io/cueq/) lets visitors
+The [GitHub Pages demo](https://sebastianspicker.github.io/cueq-campus-workforce/) lets visitors
 try time recording, booking corrections, and approvals without an account. It
 uses the application's CSS and invented records. The HTML and JavaScript run
 entirely in the browser; the demo has no API or database connection.
@@ -55,7 +55,7 @@ source. Only the deploy job receives deployment permissions.
 
 After deployment, open the hosted page and try the steps above. Check asset
 loading and direct links such as `#genehmigungen`, which must also work under
-the repository's `/cueq/` URL.
+the repository's `/cueq-campus-workforce/` URL.
 
 ## After a visual change
 

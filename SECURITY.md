@@ -6,7 +6,7 @@ load real employment, payroll, health, or other personal records.
 
 ## Reporting a vulnerability
 
-Use GitHub's [private vulnerability report](https://github.com/sebastianspicker/cueq/security/advisories/new).
+Use GitHub's [private vulnerability report](https://github.com/sebastianspicker/cueq-campus-workforce/security/advisories/new).
 Do not report suspected vulnerabilities in public issues. If the private form
 is unavailable, keep the details private until a reporting channel is available.
 
