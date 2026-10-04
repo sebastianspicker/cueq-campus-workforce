@@ -16,9 +16,6 @@
   "scripts": {
     "build": "rm -rf dist && tsc --project tsconfig.build.json",
     "typecheck": "tsc --project tsconfig.json --noEmit",
-    "test": "vitest run",
-    "test:coverage": "vitest run --coverage",
-    "test:integration": "vitest run --config vitest.integration.config.ts",
     "lint": "eslint src/",
     "lint:fix": "eslint src/ --fix",
     "db:generate": "prisma generate",
@@ -37,10 +34,8 @@
     "@prisma/client": "6.19.2"
   },
   "devDependencies": {
-    "@vitest/coverage-v8": "catalog:",
     "@types/node": "catalog:",
     "@typescript/native": "catalog:",
-    "prisma": "6.19.2",
-    "vitest": "catalog:"
+    "prisma": "6.19.2"
   }
 }

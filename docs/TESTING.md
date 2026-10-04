@@ -18,16 +18,14 @@ report, and the OpenAPI drift check.
 
 Useful focused commands include:
 
-| Command                                                      | Use it for                                                  |
-| ------------------------------------------------------------ | ----------------------------------------------------------- |
-| `make docs-check`                                            | Repository-relative Markdown links                          |
-| `make hygiene-check`                                         | Files that must not be tracked                              |
-| `make knip`                                                  | Unused files, exports, dependencies, and binaries           |
-| `make schemas`                                               | JSON Schema validation and examples                         |
-| `make openapi-check`                                         | Comparing generated OpenAPI with the committed snapshot     |
-| `./scripts/pnpm.sh test:coverage`                            | Workspace coverage thresholds                               |
-| `./scripts/pnpm.sh --filter @cueq/database test:integration` | Database and audit invariants                               |
-| `./scripts/pnpm.sh --filter @cueq/api test:integration`      | HTTP reads and authorization against the synthetic baseline |
+| Command                           | Use it for                                              |
+| --------------------------------- | ------------------------------------------------------- |
+| `make docs-check`                 | Repository-relative Markdown links                      |
+| `make hygiene-check`              | Files that must not be tracked                          |
+| `make knip`                       | Unused files, exports, dependencies, and binaries       |
+| `make schemas`                    | JSON Schema validation and examples                     |
+| `make openapi-check`              | Comparing generated OpenAPI with the committed snapshot |
+| `./scripts/pnpm.sh test:coverage` | Workspace coverage thresholds                           |
 
 `make generate` refreshes Prisma and committed generated files; it is a write
 operation, not a check. CI runs it and rejects an unexpected diff.
@@ -38,12 +36,8 @@ operation, not a check. CI runs it and rejects an unexpected diff.
   `packages/*/src`.
 - API service, adapter, security, and controller tests are under
   `apps/api/src`.
-- API composition and OpenAPI tests are in `apps/api/test/architecture`; real
-  listener tests are in `apps/api/test/integration`.
-- Database integration tests are in `packages/database/test/integration` and
-  use their own Vitest configuration.
-- Web tests cover selected platform and component behavior under `apps/web/src`.
-  The repository does not contain a browser end-to-end suite.
+- The repository does not contain a browser end-to-end suite or a separate
+  database or HTTP integration suite.
 
 Contracts, policy, and domain packages leave files named
 `*.integration.test.ts`, `*.acceptance.test.ts`, and `*.compliance.test.ts` out
@@ -55,27 +49,6 @@ CUEQ_INCLUDE_SPECIALIZED_TESTS=1 ./scripts/pnpm.sh test
 
 This flag does not start services or add browser coverage. Each test still needs
 the environment used by its implementation.
-
-## Run the PostgreSQL suites
-
-Use a dedicated, disposable database in `DATABASE_URL`. Apply migrations and
-seed the baseline before the API integration suite:
-
-```bash
-./scripts/pnpm.sh --filter @cueq/database db:migrate:deploy
-./scripts/pnpm.sh --filter @cueq/database db:seed:baseline
-./scripts/pnpm.sh --filter @cueq/database test:integration
-./scripts/pnpm.sh --filter @cueq/api test:integration
-```
-
-The API suite starts the complete NestJS application on a real HTTP listener. It
-makes read-only requests against the synthetic baseline and checks mock-token
-authentication, including an employee-role denial. Do not point either suite at
-a database whose contents must be retained.
-
-Database tests also exercise webhook job generation fencing and single-count
-item finalization. Unit tests cannot establish recovery across process restarts
-or competing workers.
 
 ## Check documentation changes
 

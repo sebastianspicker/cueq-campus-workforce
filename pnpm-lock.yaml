@@ -152,9 +152,6 @@ importers:
       '@nestjs/cli':
         specifier: 11.0.24
         version: 11.0.24(@swc/core@1.15.17)(@types/node@20.19.39)(esbuild@0.28.1)(postcss@8.5.23)
-      '@nestjs/testing':
-        specifier: 11.1.18
-        version: 11.1.18(@nestjs/common@11.1.18(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1))(@nestjs/core@11.1.18)(@nestjs/platform-express@11.1.18)
       '@types/express':
         specifier: 5.0.6
         version: 5.0.6
@@ -204,15 +201,9 @@ importers:
       '@typescript/native':
         specifier: 'catalog:'
         version: typescript@7.0.2
-      '@vitest/coverage-v8':
-        specifier: 'catalog:'
-        version: 4.1.11(vitest@4.1.11)
       typescript:
         specifier: 'catalog:'
         version: '@typescript/typescript6@6.0.2'
-      vitest:
-        specifier: 'catalog:'
-        version: 4.1.11(@types/node@20.19.39)(@vitest/coverage-v8@4.1.11)(jsdom@29.0.2(@noble/hashes@1.8.0))(vite@7.3.5(@types/node@20.19.39)(jiti@2.7.0)(terser@5.46.0)(yaml@2.9.0))
 
   packages/contracts:
     dependencies:
@@ -245,15 +236,9 @@ importers:
       '@typescript/native':
         specifier: 'catalog:'
         version: typescript@7.0.2
-      '@vitest/coverage-v8':
-        specifier: 'catalog:'
-        version: 4.1.11(vitest@4.1.11)
       prisma:
         specifier: 6.19.2
         version: 6.19.2(magicast@0.3.5)(typescript@7.0.2)
-      vitest:
-        specifier: 'catalog:'
-        version: 4.1.11(@types/node@20.19.39)(@vitest/coverage-v8@4.1.11)(jsdom@29.0.2(@noble/hashes@1.8.0))(vite@7.3.5(@types/node@20.19.39)(jiti@2.7.0)(terser@5.46.0)(yaml@2.9.0))
 
   packages/domain:
     dependencies:
@@ -345,10 +330,6 @@ packages:
     resolution: {integrity: sha512-9NhCeYjq9+3uxgdtp20LSiJXJvN0FeCtNGpJxuMFZ1Kv3cWUNb6DOhJwUvcVCzKGR66cw4njwM6hrJLqgOwbcw==}
     engines: {node: '>=6.9.0'}
 
-  '@babel/helper-string-parser@7.27.1':
-    resolution: {integrity: sha512-qMlSxKbpRlAridDExk92nSobyDdpPijUq2DW6oDnUqd0iOGxmQjyqhMIihI9+zv4LPyZdRje2cavWPbCbWm3eA==}
-    engines: {node: '>=6.9.0'}
-
   '@babel/helper-string-parser@7.29.7':
     resolution: {integrity: sha512-Pb5ijPrZ89GDH8223L4UP8i6QApWxs04RbPQJTeWDV0/keR2E36MeKnyr6LYmUUvqRRI+Iv87SuF1W6ErINzYw==}
     engines: {node: '>=6.9.0'}
@@ -361,19 +342,10 @@ packages:
     resolution: {integrity: sha512-qehxGkRj55h/ff8EMaJ+cYhyaKlHIxqYDn682wQD7RNp9UujOQsHog2uS0r2vzr4pW+sXf90NeeayjcNaX3fFg==}
     engines: {node: '>=6.9.0'}
 
-  '@babel/parser@7.29.0':
-    resolution: {integrity: sha512-IyDgFV5GeDUVX4YdF/3CPULtVGSXXMLh1xVIgdCgxApktqnQV0r7/8Nqthg+8YLGaAtdyIlo2qIdZrbCv4+7ww==}
-    engines: {node: '>=6.0.0'}
-    hasBin: true
-
   '@babel/parser@7.29.9':
     resolution: {integrity: sha512-CjXrNHTnvqBVqHgdBysY3vk2T8tpJHb5/RMeHJBTyVa9xgugCB0CJTx/3oO8RV2QRQP391RWpB7D6hLjm8V9uA==}
     engines: {node: '>=6.0.0'}
     hasBin: true
-
-  '@babel/types@7.29.0':
-    resolution: {integrity: sha512-LwdZHpScM4Qz8Xw2iKSzS+cfglZzJGvofQICy7W7v4caru4EaAmyUuO6BGrbyQ2mYV11W0U8j5mBhd14dd3B0A==}
-    engines: {node: '>=6.9.0'}
 
   '@babel/types@7.29.8':
     resolution: {integrity: sha512-Vj1jF3cPfxg7OAfoI7QnVKLoILlm2JF9pnVHrX8qx7AHMiYWT+NDAA7jChlNgRS4WTLc/fD1lXLmPixluj+3Gg==}
@@ -1109,19 +1081,6 @@ packages:
       class-transformer:
         optional: true
       class-validator:
-        optional: true
-
-  '@nestjs/testing@11.1.18':
-    resolution: {integrity: sha512-frzwNlpBgtAzI3hp/qo57DZoRO4RMTH1wST3QUYEhRTHyfPkLpzkWz3jV/mhApXjD0yT56Ptlzn6zuYPLh87Lw==}
-    peerDependencies:
-      '@nestjs/common': ^11.0.0
-      '@nestjs/core': ^11.0.0
-      '@nestjs/microservices': ^11.0.0
-      '@nestjs/platform-express': ^11.0.0
-    peerDependenciesMeta:
-      '@nestjs/microservices':
-        optional: true
-      '@nestjs/platform-express':
         optional: true
 
   '@next/env@15.5.24':
@@ -4005,29 +3964,15 @@ snapshots:
       js-tokens: 4.0.0
       picocolors: 1.1.1
 
-  '@babel/helper-string-parser@7.27.1':
-    optional: true
-
   '@babel/helper-string-parser@7.29.7': {}
 
   '@babel/helper-validator-identifier@7.28.5': {}
 
   '@babel/helper-validator-identifier@7.29.7': {}
 
-  '@babel/parser@7.29.0':
-    dependencies:
-      '@babel/types': 7.29.0
-    optional: true
-
   '@babel/parser@7.29.9':
     dependencies:
       '@babel/types': 7.29.8
-
-  '@babel/types@7.29.0':
-    dependencies:
-      '@babel/helper-string-parser': 7.27.1
-      '@babel/helper-validator-identifier': 7.28.5
-    optional: true
 
   '@babel/types@7.29.8':
     dependencies:
@@ -4672,14 +4617,6 @@ snapshots:
       path-to-regexp: 8.4.2
       reflect-metadata: 0.2.2
       swagger-ui-dist: 5.31.0
-
-  '@nestjs/testing@11.1.18(@nestjs/common@11.1.18(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1))(@nestjs/core@11.1.18)(@nestjs/platform-express@11.1.18)':
-    dependencies:
-      '@nestjs/common': 11.1.18(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1)
-      '@nestjs/core': 11.1.18(@nestjs/common@11.1.18(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1))(@nestjs/platform-express@11.1.18)(reflect-metadata@0.2.2)(rxjs@7.8.2)
-      tslib: 2.8.1
-    optionalDependencies:
-      '@nestjs/platform-express': 11.1.18(@nestjs/common@11.1.18(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1))(@nestjs/core@11.1.18)(supports-color@8.1.1)
 
   '@next/env@15.5.24': {}
 
@@ -6386,8 +6323,8 @@ snapshots:
 
   magicast@0.3.5:
     dependencies:
-      '@babel/parser': 7.29.0
-      '@babel/types': 7.29.0
+      '@babel/parser': 7.29.9
+      '@babel/types': 7.29.8
       source-map-js: 1.2.1
     optional: true
 

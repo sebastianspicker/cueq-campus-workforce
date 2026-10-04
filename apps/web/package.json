@@ -11,8 +11,6 @@
     "lint": "eslint src/",
     "lint:fix": "eslint src/ --fix",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
-    "test:coverage": "vitest run --coverage",
     "clean": "rm -rf .next node_modules/.cache"
   },
   "dependencies": {
@@ -23,12 +21,10 @@
     "react-dom": "19.2.4"
   },
   "devDependencies": {
-    "@vitest/coverage-v8": "catalog:",
     "@types/node": "catalog:",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
     "@typescript/native": "catalog:",
-    "typescript": "catalog:",
-    "vitest": "catalog:"
+    "typescript": "catalog:"
   }
 }

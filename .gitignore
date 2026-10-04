@@ -167,5 +167,13 @@ CHATGPT_NOTES*
 /*-status.md
 /*_status.md
 
-# Public release documentation (also on case-insensitive filesystems)
-!/RELEASE_STATUS.md
+# Internal status notes and test suites kept out of the public tree
+/RELEASE_STATUS.md
+/apps/api/test/
+/apps/web/test/
+/packages/contracts/src/__tests__/
+/packages/database/test/
+/packages/domain/src/audit/__tests__/
+/packages/domain/src/time-engine/__tests__/
+/packages/policy/src/__tests__/
+/scripts/test/

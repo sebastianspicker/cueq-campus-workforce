@@ -1,8 +1,7 @@
 # Changelog
 
 Changes listed under Unreleased are still in development. They do not describe
-a published release. See [Release status](RELEASE_STATUS.md) for current
-limitations and the checks required before release.
+a published release.
 
 ## Unreleased
 
@@ -50,8 +49,7 @@ limitations and the checks required before release.
 - The Pages demo handles mobile navigation, keyboard controls, reset, empty
   command searches, and zero open approvals. Time totals match the example
   bookings.
-- Ignore rules cover nested database files and allow `RELEASE_STATUS.md` on
-  case-insensitive filesystems. The hygiene check rejects additional private
+- Ignore rules cover nested database files. The hygiene check rejects additional private
   and generated files, including forced additions.
 - `.node-version` matches the Node.js version used in CI.
 - Updated NestJS to 11.1.18, `next-intl` to 4.9.2, Vitest to 3.2.6, Turbo to

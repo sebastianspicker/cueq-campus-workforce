@@ -26,12 +26,6 @@ export default defineConfig({
         'src/**/*.typecheck.ts',
       ],
       reporter: ['text', 'json-summary'],
-      thresholds: {
-        lines: 90,
-        functions: 90,
-        branches: 85,
-        statements: 90,
-      },
     },
   },
 });

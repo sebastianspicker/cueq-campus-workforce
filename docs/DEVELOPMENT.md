@@ -79,10 +79,8 @@ right order. During focused work, you can call one workspace directly:
 ./scripts/pnpm.sh --filter @cueq/api test
 ./scripts/pnpm.sh --filter @cueq/web typecheck
 ./scripts/pnpm.sh --filter @cueq/domain test
-./scripts/pnpm.sh --filter @cueq/database test:integration
 ```
 
-The database integration suite needs a migrated, disposable PostgreSQL database.
 [Testing](TESTING.md) describes the complete checks and their prerequisites.
 
 ## Regenerate contracts

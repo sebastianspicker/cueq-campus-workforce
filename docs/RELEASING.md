@@ -35,19 +35,19 @@ Use Node.js 22.13 or later and pnpm 11.24.0, then complete these checks:
 
 6. Review the demo and screenshots for synthetic data, accurate roles, German
    copy, clipping, stale content, and a clear statement that the demo has no API.
-7. Read `README.md`, `CHANGELOG.md`, `RELEASE_STATUS.md`, `SECURITY.md`,
+7. Read `README.md`, `CHANGELOG.md`, `SECURITY.md`,
    `SUPPORT.md`, and `docs/DEVELOPMENT.md` as a first-time evaluator.
 8. Confirm CI, Dependency Review, CodeQL, and Pages on the same commit.
 
 A failure or unavailable check leaves the release as a draft. Record the commit,
-date, environment, commands, and results in `RELEASE_STATUS.md`. Any change to
+date, environment, commands, and results in the release notes. Any change to
 the commit creates a new candidate and requires fresh hosted results.
 
 ## Write the release notes
 
 Move entries out of `Unreleased` only when the release is approved. Release
 notes should identify the tag and commit, summarize changes visible to users,
-and link to the release status, changelog, development guide, and security
+and link to the changelog, development guide, and security
 policy. State plainly that the release is for local evaluation with synthetic
 data and includes no package, image, hosted application, or production support.
 List checks that could not be run.

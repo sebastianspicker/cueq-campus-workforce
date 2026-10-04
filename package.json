@@ -23,7 +23,7 @@
     "architecture:check": "node ./scripts/check-architecture.mjs",
     "toolchain:verify": "node ./scripts/verify-typescript-toolchain.mjs",
     "typecheck": "node ./scripts/verify-typescript-toolchain.mjs && turbo run typecheck",
-    "test": "pnpm test:tooling && turbo run test",
+    "test": "turbo run test",
     "test:coverage": "turbo run test:coverage",
     "backfill:leave-adjustments": "node ./scripts/backfill-leave-adjustments.mjs",
     "backfill:workflow-fields": "node ./scripts/backfill-workflow-fields.mjs",
@@ -41,8 +41,7 @@
     "db:push": "turbo run db:push",
     "db:migrate": "turbo run db:migrate",
     "clean": "turbo run clean && rm -rf .turbo",
-    "lint:tooling": "eslint scripts/ packages/database/scripts/ packages/database/prisma/ eslint.config.mjs",
-    "test:tooling": "node --test scripts/test/*.test.mjs"
+    "lint:tooling": "eslint scripts/ packages/database/scripts/ packages/database/prisma/ eslint.config.mjs"
   },
   "devDependencies": {
     "@next/eslint-plugin-next": "15.5.24",

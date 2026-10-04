@@ -6,8 +6,7 @@ German-first workspace.
 The reference organization is a German university. Other organizations can
 adapt the workflows, but need to review the included policies, calendar,
 languages, and roles against their own requirements. The
-[feature guide](docs/product-specs/README.md) describes what is implemented; the
-[release status](RELEASE_STATUS.md) lists what remains before operational use.
+[feature guide](docs/product-specs/README.md) describes what is implemented.
 
 ## Who uses it
 

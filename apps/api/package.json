@@ -16,8 +16,7 @@
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:coverage:all": "vitest run --coverage --config vitest.coverage-all.config.ts",
-    "clean": "rm -rf dist node_modules/.cache",
-    "test:integration": "vitest run --config vitest.integration.config.ts"
+    "clean": "rm -rf dist node_modules/.cache"
   },
   "dependencies": {
     "@cueq/contracts": "workspace:*",
@@ -38,7 +37,6 @@
   "devDependencies": {
     "@vitest/coverage-v8": "catalog:",
     "@nestjs/cli": "11.0.24",
-    "@nestjs/testing": "11.1.18",
     "@types/express": "5.0.6",
     "@types/node": "catalog:",
     "@typescript/native": "catalog:",

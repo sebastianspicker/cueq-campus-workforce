@@ -31,7 +31,6 @@ more detail.
 - [Operations](OPERATIONS.md): migrations, imports, webhook maintenance, health
   checks, and recovery.
 - [Security design](SECURITY.md): authentication, authorization, and privacy.
-- [Release status](../RELEASE_STATUS.md): current maturity and known gaps.
 - [Releasing](RELEASING.md): check and publish a source release.
 
 ## Project information
