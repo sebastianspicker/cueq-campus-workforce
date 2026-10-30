@@ -28,7 +28,7 @@ export const EmploymentTermSchema = z.object({
   workingDays: z.array(z.number().int().min(1).max(7)).min(1).max(7),
   employmentGroupId: IdSchema,
   holidayCalendarId: IdSchema,
-  policyReferences: z.record(z.string().max(200)),
+  policyReferences: z.record(z.string(), z.string().max(200)),
 });
 
 export const EmploymentAssignmentSchema = z.object({
@@ -127,7 +127,7 @@ export const CreateEmploymentGroupSchema = z
     code: z.string().min(1).max(100),
     name: z.string().min(1).max(200),
     version: z.number().int().positive(),
-    leavePolicy: z.record(z.unknown()),
+    leavePolicy: z.record(z.string(), z.unknown()),
   })
   .strict();
 export const CreateHolidayCalendarSchema = z

@@ -77,7 +77,7 @@ export class ClosingCorrectionHelper {
         throw new BadRequestException({
           statusCode: 400,
           error: 'Bad Request',
-          message: transition.violations.join('; '),
+          message: transition.violations.map((violation) => violation.message).join('; '),
           details: transition.violations,
         });
       }

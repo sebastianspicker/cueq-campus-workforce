@@ -5,16 +5,62 @@ import { StatusBadge } from '../../../components/StatusBadge';
 import {
   checklistVariant,
   formatInstant,
+  type ClosingChecklistFinding,
   type ClosingChecklistResponse,
   type ClosingPeriod,
   type TranslationFn,
 } from './closing-types';
 
+/** Names who or what blocks a checklist item; unknown reasons fall back to the API message. */
+function ChecklistFindings({
+  t,
+  locale,
+  code,
+  findings,
+}: {
+  t: TranslationFn;
+  locale: string;
+  code: string;
+  findings: ClosingChecklistFinding[];
+}) {
+  // Reasons come from the server; only plain codes may select a catalog key.
+  const localizedReason = (reason: string) =>
+    /^[A-Z_]+$/u.test(reason) && t.has(`findingReasons.${reason}`)
+      ? t(`findingReasons.${reason}`)
+      : null;
+  const remedyKey = `findingRemedies.${code}`;
+  return (
+    <div className="cq-closing-findings">
+      <ul>
+        {findings.map((finding, index) => (
+          <li key={`${finding.reason}-${finding.workflowId ?? finding.bookingId ?? ''}-${index}`}>
+            <strong>{finding.personName ?? finding.personId ?? t('findingUnknownPerson')}</strong>
+            {': '}
+            <span title={finding.message}>
+              {localizedReason(finding.reason) ?? finding.message}
+            </span>
+            {finding.from ? (
+              <small>
+                {' '}
+                ({formatInstant(finding.from, locale)}
+                {finding.to ? ` – ${formatInstant(finding.to, locale)}` : ''})
+              </small>
+            ) : null}
+          </li>
+        ))}
+      </ul>
+      {t.has(remedyKey) ? <p className="cq-text-muted">{t(remedyKey)}</p> : null}
+    </div>
+  );
+}
+
 export function ChecklistSection({
   t,
+  locale,
   checklist,
 }: {
   t: TranslationFn;
+  locale: string;
   checklist: ClosingChecklistResponse | null;
 }) {
   return (
@@ -42,6 +88,14 @@ export function ChecklistSection({
                     ? t('missingTimeAccountsDetails')
                     : item.details}
                 </p>
+                {item.findings?.length ? (
+                  <ChecklistFindings
+                    t={t}
+                    locale={locale}
+                    code={item.code}
+                    findings={item.findings}
+                  />
+                ) : null}
                 <span className="cq-closing-row-chevron" aria-hidden="true">
                   ›
                 </span>

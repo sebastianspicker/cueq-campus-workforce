@@ -2,7 +2,7 @@
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { type Prisma, WorkflowType } from '@cueq/database';
 import {
-  BookingCorrectionSchema,
+  BookingCorrectionPayloadSchema,
   isBookingDurationAllowed,
   OvertimeApprovalRequestSchema,
   ShiftSwapRequestSchema,
@@ -88,7 +88,7 @@ async function guardBookingCorrection(
   const { scope } = context;
   if (!isBookingCorrectionApproval(scope, context.requestedAction)) return null;
 
-  const correction = BookingCorrectionSchema.parse(scope.requestPayload ?? {});
+  const correction = BookingCorrectionPayloadSchema.parse(scope.requestPayload ?? {});
   const booking = await loadBookingForCorrection(context.tx, scope.entityId);
   if (!scope.assignmentId || scope.assignmentId !== booking.assignmentId) {
     throw new BadRequestException('Booking appointment does not match its workflow.');

@@ -44,7 +44,7 @@
     "lint:tooling": "eslint scripts/ packages/database/scripts/ packages/database/prisma/ eslint.config.mjs"
   },
   "devDependencies": {
-    "@next/eslint-plugin-next": "15.5.24",
+    "@next/eslint-plugin-next": "15.5.28",
     "@typescript/native": "catalog:",
     "husky": "9.1.7",
     "ajv": "8.18.0",

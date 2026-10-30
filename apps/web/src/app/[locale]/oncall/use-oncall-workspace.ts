@@ -25,6 +25,11 @@ import type {
   OnCallDeployment,
   OnCallRotation,
 } from './oncall-types';
+import {
+  addCalendarDays,
+  berlinInstant,
+  berlinToday,
+} from '../../../shared/time/calendar-defaults';
 
 const APPROVAL_ROLES = new Set(['TEAM_LEAD', 'SHIFT_PLANNER', 'HR', 'ADMIN']);
 
@@ -48,15 +53,19 @@ export function useOnCallWorkspace(t: TranslationFn) {
   const [personId, setPersonId] = useState('');
   const [organizationUnitId, setOrganizationUnitId] = useState('');
   const [rotationId, setRotationId] = useState('');
-  const [startTime, setStartTime] = useState('2026-03-03T08:00:00.000Z');
-  const [endTime, setEndTime] = useState('2026-03-10T08:00:00.000Z');
+  const [startTime, setStartTime] = useState(() => berlinInstant(berlinToday(), '08:00'));
+  const [endTime, setEndTime] = useState(() =>
+    berlinInstant(addCalendarDays(berlinToday(), 7), '08:00'),
+  );
   const [rotationType, setRotationType] = useState<'WEEKLY' | 'DAILY' | 'CUSTOM'>('WEEKLY');
   const [note, setNote] = useState('');
   const [ticketReference, setTicketReference] = useState('');
   const [eventReference, setEventReference] = useState('');
   const [description, setDescription] = useState('');
   const [remote, setRemote] = useState(true);
-  const [nextShiftStart, setNextShiftStart] = useState('2026-03-10T09:00:00.000Z');
+  const [nextShiftStart, setNextShiftStart] = useState(() =>
+    berlinInstant(addCalendarDays(berlinToday(), 7), '09:00'),
+  );
   const [updateRotationId, setUpdateRotationId] = useState('');
 
   async function resolveMe(request: ApiRequest) {

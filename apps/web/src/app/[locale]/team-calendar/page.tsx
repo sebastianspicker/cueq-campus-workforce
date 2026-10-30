@@ -10,12 +10,13 @@ import { SectionCard } from '../../../components/SectionCard';
 import { StatusBadge } from '../../../components/StatusBadge';
 import { StatusBanner } from '../../../components/StatusBanner';
 import { useApiContext } from '../../../platform/http/api-context';
+import { berlinMonth, monthBounds } from '../../../shared/time/calendar-defaults';
 
 export default function TeamCalendarPage() {
   const t = useTranslations('pages.teamCalendar');
   const { apiRequest } = useApiContext();
-  const [start, setStart] = useState('2026-04-01');
-  const [end, setEnd] = useState('2026-04-30');
+  const [start, setStart] = useState(() => monthBounds(berlinMonth()).first);
+  const [end, setEnd] = useState(() => monthBounds(berlinMonth()).last);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [entries, setEntries] = useState<TeamCalendarEntry[]>([]);

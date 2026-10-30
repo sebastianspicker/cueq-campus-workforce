@@ -202,6 +202,60 @@ describe('appointment time-account lifecycle', () => {
     expect(tx.booking.findMany).not.toHaveBeenCalled();
   });
 
+  it('distinguishes missing, outdated and incompatible accounts without changing the count', async () => {
+    const matching = { ...account, actualHours: decimal(0), balance: decimal(-16) };
+    const incompatible = { ...matching, periodStart: new Date('2026-03-03T00:00:00.000Z') };
+    const closingTx = (accounts: unknown[]) => ({
+      $queryRaw: vi.fn(async () => [{ acquired: true }]),
+      employmentAssignment: {
+        findMany: vi.fn(async () => [
+          {
+            id: account.assignmentId,
+            personId: account.personId,
+            employmentStartDate: null,
+            employmentEndDate: null,
+            terms: [term],
+          },
+        ]),
+      },
+      booking: { findMany: vi.fn(async () => []) },
+      timeAccount: { findMany: vi.fn(async () => accounts) },
+    });
+    const segment = {
+      personId: account.personId,
+      assignmentId: account.assignmentId,
+      periodStart: period.periodStart,
+      periodEnd: period.periodEnd,
+    };
+    const fixture = serviceWith({});
+    const cases = [
+      { accounts: [matching], expected: [] },
+      { accounts: [], expected: [{ ...segment, reason: 'NO_ACCOUNT' }] },
+      { accounts: [account], expected: [{ ...segment, reason: 'OUTDATED_ACCOUNT' }] },
+      {
+        accounts: [incompatible],
+        expected: [
+          { ...segment, reason: 'NO_ACCOUNT' },
+          {
+            ...segment,
+            periodStart: incompatible.periodStart,
+            reason: 'INCOMPATIBLE_ACCOUNT',
+          },
+        ],
+      },
+    ];
+
+    for (const { accounts, expected } of cases) {
+      const tx = closingTx(accounts);
+      await expect(fixture.service.listMissingForClosing(tx as never, period)).resolves.toEqual(
+        expected,
+      );
+      await expect(fixture.service.countMissingForClosing(tx as never, period)).resolves.toBe(
+        expected.length,
+      );
+    }
+  });
+
   it('splits contiguously, preserves aggregate values, and retains the workflow target row', async () => {
     const first = {
       ...account,

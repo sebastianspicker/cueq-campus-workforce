@@ -27,7 +27,7 @@ function input(tx: object, decision: WorkflowEffectInput['decision']): WorkflowE
 }
 
 describe('WorkflowAttendanceEffectsService', () => {
-  it('applies an approved booking correction through its supplied transaction', async () => {
+  it('applies an approved booking correction from its stored payload, which has no reason', async () => {
     const audit = { appendAudit: vi.fn().mockResolvedValue(undefined) };
     const booking = {
       id: ids.booking,
@@ -60,7 +60,6 @@ describe('WorkflowAttendanceEffectsService', () => {
           bookingId: ids.booking,
           assignmentId: ids.assignment,
           endTime: '2026-08-20T13:00:00.000Z',
-          reason: 'Forgot to record the final hour.',
         },
       }),
     );
@@ -94,7 +93,6 @@ describe('WorkflowAttendanceEffectsService', () => {
           entityId: ids.booking,
           requestPayload: {
             bookingId: ids.account,
-            reason: 'This correction belongs to another item.',
           },
         }),
       ),

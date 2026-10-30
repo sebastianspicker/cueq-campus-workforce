@@ -35,3 +35,6 @@ export const TimeTypeSchema = z.object({
   updatedAt: DateTimeSchema,
 });
 export type TimeType = z.infer<typeof TimeTypeSchema>;
+
+export const TimeTypeListSchema = z.array(TimeTypeSchema);
+export type TimeTypeList = z.infer<typeof TimeTypeListSchema>;

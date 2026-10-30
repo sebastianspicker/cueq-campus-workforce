@@ -84,12 +84,24 @@ export const ClosingPeriodMutationResponseSchema = ClosingPeriodSchema.omit({
   exportRuns: true,
 });
 
+export const ClosingChecklistFindingSchema = z.object({
+  reason: z.string(),
+  message: z.string(),
+  personId: z.string().optional(),
+  personName: z.string().optional(),
+  assignmentId: z.string().optional(),
+  bookingId: z.string().optional(),
+  workflowId: z.string().optional(),
+  from: z.string().optional(),
+  to: z.string().optional(),
+});
 export const ClosingChecklistItemSchema = z.object({
   code: z.string(),
   label: z.string(),
   severity: z.string(),
   status: z.string(),
   details: z.string(),
+  findings: z.array(ClosingChecklistFindingSchema).optional(),
 });
 export const ClosingChecklistResponseSchema = z.object({
   closingPeriodId: IdSchema,

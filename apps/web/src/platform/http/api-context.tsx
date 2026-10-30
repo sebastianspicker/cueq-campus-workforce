@@ -3,7 +3,9 @@
 /** Client API configuration context; stored endpoint values are convenience settings, not a trust boundary. */
 
 import { createContext, useContext, useMemo, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { createApiFetch, createApiRequest, type ApiFetch, type ApiRequest } from './api-client';
+import { describeApiError } from './api-error-message';
 
 const SESSION_ENDPOINT_SLOT = 'cq-api-base-url';
 const LEGACY_SESSION_TOKEN_SLOT = 'cq-token';
@@ -61,6 +63,7 @@ interface ApiProviderProps {
 }
 
 export function ApiProvider({ children }: ApiProviderProps) {
+  const tApiErrors = useTranslations('app.apiErrors');
   const [apiBaseUrl, setApiBaseUrlState] = useState(() =>
     normalizeApiBaseUrl(readSessionValue(SESSION_ENDPOINT_SLOT, DEFAULT_API_BASE_URL)),
   );
@@ -91,9 +94,11 @@ export function ApiProvider({ children }: ApiProviderProps) {
       setToken,
       connectionKey: `${apiBaseUrl}|${token}`,
       apiFetch: createApiFetch(apiBaseUrl, token),
-      apiRequest: createApiRequest(apiBaseUrl, token, 'Request failed.'),
+      apiRequest: createApiRequest(apiBaseUrl, token, (status, payload) =>
+        describeApiError(tApiErrors, status, payload),
+      ),
     };
-  }, [apiBaseUrl, token]);
+  }, [apiBaseUrl, token, tApiErrors]);
 
   return <ApiContext.Provider value={value}>{children}</ApiContext.Provider>;
 }

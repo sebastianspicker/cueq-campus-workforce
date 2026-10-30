@@ -3,6 +3,7 @@ import type { CueqRole } from '../../../components/AppWorkspace';
 import type { ClosingChecklistResponse, ClosingPeriod } from './closing-types';
 
 export type ClosingActionId =
+  | 'start-review'
   | 'lead-approve'
   | 'approve'
   | 'export'
@@ -11,9 +12,10 @@ export type ClosingActionId =
 
 export interface ClosingActionDescriptor {
   id: ClosingActionId;
-  label: 'leadApprove' | 'approve' | 'export' | 'reopen' | 'postCloseCorrection';
+  label: 'startReview' | 'leadApprove' | 'approve' | 'export' | 'reopen' | 'postCloseCorrection';
   unavailableHintId: string;
   unavailableHint:
+    | 'startReviewUnavailable'
     | 'leadApproveUnavailable'
     | 'approveUnavailable'
     | 'exportUnavailable'
@@ -67,7 +69,21 @@ export function createClosingActionDescriptors({
   }
 
   const status = period?.status ?? '';
+  // Manual review start is admin-only and additionally gated by server configuration.
+  const startReview: ClosingActionDescriptor[] =
+    role === 'ADMIN'
+      ? [
+          {
+            id: 'start-review',
+            label: 'startReview',
+            unavailableHintId: 'closing-start-review-action-reason',
+            unavailableHint: 'startReviewUnavailable',
+            available: status === 'OPEN',
+          },
+        ]
+      : [];
   return [
+    ...startReview,
     {
       id: 'approve',
       label: 'approve',

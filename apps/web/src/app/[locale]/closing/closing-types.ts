@@ -1,11 +1,23 @@
 import type { useTranslations } from 'next-intl';
 
+export interface ClosingChecklistFinding {
+  reason: string;
+  message: string;
+  personId?: string;
+  personName?: string;
+  bookingId?: string;
+  workflowId?: string;
+  from?: string;
+  to?: string;
+}
+
 interface ClosingChecklistItem {
   code: string;
   label: string;
   severity: string;
   status: string;
   details: string;
+  findings?: ClosingChecklistFinding[];
 }
 
 export interface ClosingChecklistResponse {

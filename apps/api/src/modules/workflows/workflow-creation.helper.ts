@@ -13,6 +13,7 @@ import {
   ShiftSwapRequestSchema,
   OvertimeApprovalRequestSchema,
 } from '@cueq/contracts';
+import type { BookingCorrectionPayload } from '@cueq/contracts';
 import { PrismaService } from '../../persistence/prisma.service.js';
 import type { AuthenticatedIdentity } from '../../platform/auth/auth.types.js';
 import { AssignmentHelper, PersonHelper, assertCanActForPerson } from '../people/public.js';
@@ -167,7 +168,7 @@ export class WorkflowCreationHelper {
           startTime: parsed.startTime,
           endTime: parsed.endTime,
           timeTypeId: parsed.timeTypeId,
-        },
+        } satisfies BookingCorrectionPayload,
         assignment,
         auditAfter: {
           traversedApprovers: assignment.traversedApprovers,

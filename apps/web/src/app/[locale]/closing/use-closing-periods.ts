@@ -19,13 +19,14 @@ import {
   nextSelectedPeriodId,
   type ClosingPeriodSelection,
 } from './closing-period-selection';
+import { berlinMonth } from '../../../shared/time/calendar-defaults';
 
 type TranslationFn = ReturnType<typeof useTranslations>;
 
 export function useClosingPeriods(t: TranslationFn, apiRequest: ApiRequest) {
   const reads = useReadRequests(apiRequest);
-  const [fromMonth, setFromMonth] = useState('2026-03');
-  const [toMonth, setToMonth] = useState('2026-03');
+  const [fromMonth, setFromMonth] = useState(() => berlinMonth(new Date(), -11));
+  const [toMonth, setToMonth] = useState(() => berlinMonth());
   const [organizationUnitId, setOrganizationUnitId] = useState('');
   const [periods, setPeriods] = useState<ClosingPeriod[]>([]);
   const [selectedPeriodId, setSelectedPeriodId] = useState<string | null>(null);

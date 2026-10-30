@@ -28,6 +28,7 @@ import {
   refreshAfterMutation,
   type RefreshResult,
 } from '../../../shared/workspace/mutation-refresh';
+import { addCalendarDays, berlinToday } from '../../../shared/time/calendar-defaults';
 
 const ABSENCE_TYPES = [
   'ANNUAL_LEAVE',
@@ -64,11 +65,11 @@ export default function LeavePage() {
   const locale = typeof params?.locale === 'string' ? params.locale : 'de';
   const { apiRequest } = useApiContext();
   const reads = useReadRequests(apiRequest);
-  const [year, setYear] = useState('2026');
-  const [asOfDate, setAsOfDate] = useState('2026-12-31');
+  const [year, setYear] = useState(() => berlinToday().slice(0, 4));
+  const [asOfDate, setAsOfDate] = useState(() => `${berlinToday().slice(0, 4)}-12-31`);
   const [requestType, setRequestType] = useState<(typeof ABSENCE_TYPES)[number]>('ANNUAL_LEAVE');
-  const [startDate, setStartDate] = useState('2026-04-20');
-  const [endDate, setEndDate] = useState('2026-04-22');
+  const [startDate, setStartDate] = useState(() => addCalendarDays(berlinToday(), 14));
+  const [endDate, setEndDate] = useState(() => addCalendarDays(berlinToday(), 16));
   const [note, setNote] = useState('');
   const [personId, setPersonId] = useState<string | null>(null);
   const [balance, setBalance] = useState<LeaveBalance | null>(null);

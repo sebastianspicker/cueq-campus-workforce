@@ -22,7 +22,7 @@ export type ClosingChecklistDependencies = {
   assignmentHelper: Pick<AssignmentHelper, 'resolveInterval'>;
   eventOutboxHelper: Pick<EventOutboxHelper, 'enqueueDomainEvent'>;
   timeThresholdPolicyHelper: Pick<TimeThresholdPolicyHelper, 'getActiveThresholds'>;
-  timeAccounts: Pick<TimeAccountsPort, 'countMissingForClosing'>;
+  timeAccounts: Pick<TimeAccountsPort, 'listMissingForClosing'>;
 };
 
 export type ClosingChecklistResponse = {
@@ -53,14 +53,14 @@ export async function executeClosingChecklist(
 
   const period = await findClosingPeriod(db, closingPeriodId);
   assertClosingChecklistAccess(user, actor.organizationUnitId, period);
-  const metrics = await calculateClosingChecklistMetrics(
+  const { metrics, findings } = await calculateClosingChecklistMetrics(
     db,
     period,
     () => dependencies.timeThresholdPolicyHelper.getActiveThresholds(),
     dependencies.assignmentHelper,
     dependencies.timeAccounts,
   );
-  const checklist = generateClosingChecklist(metrics);
+  const checklist = generateClosingChecklist(metrics, findings);
   await emitChecklistViolation(
     dependencies.eventOutboxHelper,
     db,

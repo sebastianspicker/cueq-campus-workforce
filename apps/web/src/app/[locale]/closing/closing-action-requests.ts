@@ -14,6 +14,7 @@ function responseSchemaForClosingAction(action: ClosingActionId): ApiResponseSch
       return ClosingExportResponseSchema;
     case 'post-close-corrections':
       return WorkflowInstanceSchema;
+    case 'start-review':
     case 'lead-approve':
     case 'approve':
     case 'reopen':

@@ -5,6 +5,7 @@ import { FormField } from '../../../components/FormField';
 import { LoadingSpinner } from '../../../components/LoadingSpinner';
 import { StatusBadge } from '../../../components/StatusBadge';
 import { StatusBanner } from '../../../components/StatusBanner';
+import { TimeTypePicker } from '../../../shared/native-hr/time-type-picker';
 import type { Booking } from './bookings-types';
 import type { useBookingsWorkspace } from './use-bookings-workspace';
 
@@ -121,14 +122,25 @@ function BookingCorrectionSection(props: BookingCorrectionSectionProps) {
             required
           />
         </FormField>
-        <FormField label={t('timeTypeIdLabel')}>
-          <input value={timeTypeId} onChange={(event) => onTimeTypeIdChange(event.target.value)} />
+        <TimeTypePicker
+          label={t('timeTypeIdLabel')}
+          emptyLabel={t('keepCurrentTimeType')}
+          value={timeTypeId}
+          onChange={onTimeTypeIdChange}
+        />
+        <FormField label={t('startTimeLabel')} error={fieldErrors.startTime}>
+          <input
+            type="datetime-local"
+            value={startTime}
+            onChange={(event) => onStartTimeChange(event.target.value)}
+          />
         </FormField>
-        <FormField label={t('startTimeLabel')}>
-          <input value={startTime} onChange={(event) => onStartTimeChange(event.target.value)} />
-        </FormField>
-        <FormField label={t('endTimeLabel')}>
-          <input value={endTime} onChange={(event) => onEndTimeChange(event.target.value)} />
+        <FormField label={t('endTimeLabel')} error={fieldErrors.endTime}>
+          <input
+            type="datetime-local"
+            value={endTime}
+            onChange={(event) => onEndTimeChange(event.target.value)}
+          />
         </FormField>
         <FormField label={t('reasonLabel')} required error={fieldErrors.reason}>
           <input value={reason} onChange={(event) => onReasonChange(event.target.value)} required />

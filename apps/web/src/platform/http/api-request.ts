@@ -1,5 +1,6 @@
 import { ApiContractError, ApiRequestError } from './api-client-errors';
 import type { ApiRequest, ApiResponseSchema } from './api-client-types';
+import type { ApiErrorDescriber } from './api-error-message';
 import { createApiFetch } from './api-fetch';
 import {
   normalizeApiContractIssues,
@@ -11,7 +12,7 @@ import {
 export function createApiRequest(
   baseUrl: string,
   token: string,
-  defaultMessage: string,
+  describeError: ApiErrorDescriber,
 ): ApiRequest {
   const apiFetch = createApiFetch(baseUrl, token);
 
@@ -28,8 +29,11 @@ export function createApiRequest(
 
     if (!response.ok) {
       const safePayload = safeApiErrorPayload(payload);
-      const userMessage = safePayload?.message ?? defaultMessage;
-      throw new ApiRequestError(response.status, `${response.status}: ${userMessage}`, safePayload);
+      throw new ApiRequestError(
+        response.status,
+        describeError(response.status, safePayload),
+        safePayload,
+      );
     }
 
     try {

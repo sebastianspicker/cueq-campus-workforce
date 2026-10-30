@@ -1,3 +1,4 @@
+import { BadRequestException } from '@nestjs/common';
 import { ClosingStatus, Role, type Prisma } from '@cueq/database';
 import { describe, expect, it, vi } from 'vitest';
 import { runClosingExportLifecycle } from './closing-export-lifecycle.js';
@@ -113,5 +114,45 @@ describe('closing export lifecycle appointment accounts', () => {
     expect(result.artifact).toBe('historical-v1-bytes\n');
     expect(create).not.toHaveBeenCalled();
     expect(update).not.toHaveBeenCalled();
+  });
+
+  it('reports why an export is rejected in readable text, not as [object Object]', async () => {
+    const tx = {
+      $queryRaw: vi.fn(async () => [{ acquired: true }]),
+      closingPeriod: {
+        findUnique: vi.fn(async () => ({ ...period, status: ClosingStatus.REVIEW })),
+        update: vi.fn(),
+      },
+      timeAccount: {
+        findMany: vi
+          .fn()
+          .mockResolvedValueOnce([
+            account('account-1', '2026-03-01T00:00:00.000Z', '2026-03-31T23:59:59.000Z'),
+          ])
+          .mockResolvedValueOnce([]),
+      },
+      exportRun: { findUnique: vi.fn(async () => null), create: vi.fn(), update: vi.fn() },
+    } as unknown as Prisma.TransactionClient;
+
+    const rejection = await runClosingExportLifecycle(
+      tx,
+      period.id,
+      'CSV_V2',
+      { id: 'actor-1', role: Role.HR },
+      {
+        assignmentHelper: {
+          resolveInterval: vi.fn(async () => ({ organizationUnitId: 'ou-1' })),
+        } as never,
+        auditHelper: { appendAudit: vi.fn(async () => undefined) },
+        eventOutboxHelper: { enqueueDomainEvent: vi.fn(async () => undefined) } as never,
+        timeAccounts: { assertCompleteForClosing: vi.fn(async () => undefined) },
+      },
+    ).catch((error: unknown) => error);
+
+    expect(rejection).toBeInstanceOf(BadRequestException);
+    expect((rejection as BadRequestException).getResponse()).toMatchObject({
+      message: 'Can only export from APPROVED.',
+      details: [expect.objectContaining({ code: 'INVALID_CLOSING_TRANSITION' })],
+    });
   });
 });

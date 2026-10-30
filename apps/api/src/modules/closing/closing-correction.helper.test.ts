@@ -6,6 +6,7 @@ import {
   WorkflowStatus,
   WorkflowType,
 } from '@cueq/database';
+import { BadRequestException } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
 import type { PrismaService } from '../../persistence/prisma.service.js';
 import type { AuditHelper } from '../audit/public.js';
@@ -103,5 +104,44 @@ describe('post-close appointment correction', () => {
       tx,
     );
     expect(result).toMatchObject({ assignmentId, durationHours: 2 });
+  });
+});
+
+describe('post-close correction request', () => {
+  it('reports why the request is rejected in readable text, not as [object Object]', async () => {
+    const tx = {
+      $queryRaw: vi.fn(async () => [{ acquired: true }]),
+      closingPeriod: {
+        findUnique: vi.fn(async () => ({
+          id: 'period-1',
+          status: ClosingStatus.REVIEW,
+          organizationUnitId: 'ou-1',
+        })),
+      },
+    };
+    const prisma = {
+      $transaction: async (callback: (transaction: typeof tx) => unknown) => callback(tx),
+    } as unknown as PrismaService;
+    const helper = new ClosingCorrectionHelper(
+      prisma,
+      {
+        personForUser: async () => ({ id: 'actor-1', organizationUnitId: 'ou-actor' }),
+      } as unknown as PersonHelper,
+      {} as AssignmentHelper,
+      {} as AuditHelper,
+      {} as WorkflowRuntimePort,
+    );
+
+    const rejection = await helper
+      .postCloseCorrection(
+        { subject: 'actor', email: 'actor@example.test', role: Role.HR, claims: {} },
+        'period-1',
+      )
+      .catch((error: unknown) => error);
+
+    expect(rejection).toBeInstanceOf(BadRequestException);
+    expect((rejection as BadRequestException).getResponse()).toMatchObject({
+      message: 'Post-close correction is only valid for EXPORTED periods.',
+    });
   });
 });

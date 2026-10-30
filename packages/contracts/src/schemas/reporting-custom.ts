@@ -58,7 +58,7 @@ export type CustomReportPreviewQueryParams = z.infer<typeof CustomReportPreviewQ
 
 export const CustomReportPreviewRowSchema = z.object({
   group: z.string(),
-  metrics: z.record(z.number()),
+  metrics: z.record(z.string(), z.number()),
 });
 export type CustomReportPreviewRow = z.infer<typeof CustomReportPreviewRowSchema>;
 

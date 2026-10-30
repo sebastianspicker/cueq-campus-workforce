@@ -65,14 +65,14 @@ export const RuleViolationSchema = z.object({
   message: z.string(),
   ruleId: z.string().optional(),
   ruleName: z.string().optional(),
-  context: z.record(z.unknown()).optional(),
+  context: z.record(z.string(), z.unknown()).optional(),
 });
 export type RuleViolation = z.infer<typeof RuleViolationSchema>;
 
 export const DomainWarningSchema = z.object({
   code: z.string(),
   message: z.string(),
-  context: z.record(z.unknown()).optional(),
+  context: z.record(z.string(), z.unknown()).optional(),
 });
 export type DomainWarning = z.infer<typeof DomainWarningSchema>;
 

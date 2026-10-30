@@ -14,6 +14,8 @@ import { WorkflowAttendanceEffectsService } from './workflow-attendance-effects.
 import { TIME_ACCOUNTS_PORT } from '../../application/ports/time-accounts.port.js';
 import { TimeAccountService } from './time-account.service.js';
 import { TimeAccountsController } from './time-accounts.controller.js';
+import { TimeTypesController } from './time-types.controller.js';
+import { TimeTypesService } from './time-types.service.js';
 
 @Module({
   imports: [AuditModule, PeopleModule, TransactionsModule],
@@ -22,6 +24,7 @@ import { TimeAccountsController } from './time-accounts.controller.js';
     DashboardController,
     TimeEngineController,
     TimeAccountsController,
+    TimeTypesController,
   ],
   providers: [
     BookingDomainService,
@@ -29,6 +32,7 @@ import { TimeAccountsController } from './time-accounts.controller.js';
     TimeEngineDomainService,
     WorkflowAttendanceEffectsService,
     TimeAccountService,
+    TimeTypesService,
     { provide: ATTENDANCE_WORKFLOW_EFFECTS_PORT, useExisting: WorkflowAttendanceEffectsService },
     { provide: TIME_ACCOUNTS_PORT, useExisting: TimeAccountService },
   ],

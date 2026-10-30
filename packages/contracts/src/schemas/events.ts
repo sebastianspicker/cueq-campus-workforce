@@ -18,7 +18,7 @@ export const DomainEventEnvelopeSchema = z.object({
   source: z.string(),
   aggregateType: z.string(),
   aggregateId: IdSchema,
-  payload: z.record(z.unknown()),
+  payload: z.record(z.string(), z.unknown()),
 });
 export type DomainEventEnvelope = z.infer<typeof DomainEventEnvelopeSchema>;
 
@@ -30,7 +30,7 @@ export const OutboxEventSchema = z.object({
   eventType: DomainEventTypeSchema,
   aggregateType: z.string(),
   aggregateId: IdSchema,
-  payload: z.record(z.unknown()),
+  payload: z.record(z.string(), z.unknown()),
   status: OutboxStatusSchema,
   attempts: z.number().int().nonnegative(),
   nextAttemptAt: DateTimeSchema.nullable(),

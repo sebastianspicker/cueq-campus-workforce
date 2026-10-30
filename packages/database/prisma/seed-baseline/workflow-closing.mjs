@@ -57,6 +57,11 @@ export async function seedWorkflowClosing(prisma, IDs) {
       entityType: 'Booking',
       entityId: IDs.bookingEmployeeIn,
       reason: 'Bitte Startzeit korrigieren',
+      requestPayload: {
+        bookingId: IDs.bookingEmployeeIn,
+        assignmentId: legacyAssignmentId(IDs.personEmployee),
+        startTime: '2026-03-02T07:30:00.000Z',
+      },
       submittedAt: new Date('2026-03-03T09:00:00.000Z'),
       dueAt: new Date('2026-03-05T09:00:00.000Z'),
       escalationLevel: 0,

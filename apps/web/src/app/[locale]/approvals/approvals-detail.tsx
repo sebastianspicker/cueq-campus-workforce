@@ -2,6 +2,7 @@
 
 import type { useTranslations } from 'next-intl';
 import { StatusBadge } from '../../../components/StatusBadge';
+import { PersonPicker } from '../../../shared/native-hr/person-picker';
 import type { WorkflowAction, WorkflowInboxItem } from './approvals-types';
 import { actionLabel, displayOptional, statusLabel } from './approvals-utils';
 
@@ -163,14 +164,18 @@ function WorkflowActionForm({
             )}
           </select>
         </label>
-        <label className="cq-form-field">
-          <span>{t('delegateToId')}</span>
-          <input
+        {action === 'DELEGATE' ? (
+          <PersonPicker
+            label={t('delegateToId')}
             value={delegateToId}
-            onChange={(event) => onDelegateToIdChange(event.target.value)}
-            disabled={action !== 'DELEGATE'}
+            onChange={onDelegateToIdChange}
           />
-        </label>
+        ) : (
+          <label className="cq-form-field">
+            <span>{t('delegateToId')}</span>
+            <input value={delegateToId} disabled />
+          </label>
+        )}
       </div>
       <label className="cq-form-field">
         <span>{t('reasonInput')}</span>

@@ -11,7 +11,10 @@ export const PersonnelFieldKeySchema = z.enum([
   'emergencyContact',
 ]);
 export const PersonnelFieldValueSchema = z.string().trim().min(1).max(2000);
-export const PersonnelFieldsSchema = z.record(PersonnelFieldKeySchema, PersonnelFieldValueSchema);
+export const PersonnelFieldsSchema = z.partialRecord(
+  PersonnelFieldKeySchema,
+  PersonnelFieldValueSchema,
+);
 export const ProfileChangeStatusSchema = z.enum([
   'PENDING_APPROVAL',
   'PENDING_SYNC',
@@ -44,7 +47,7 @@ export const CreateHrSourceSchema = z
   .object({
     code: z.string().regex(/^[a-zA-Z0-9_-]{1,100}$/),
     name: z.string().trim().min(1).max(200),
-    ownershipProfile: z.record(PersonnelFieldKeySchema, z.enum(['CUEQ', 'SOURCE'])),
+    ownershipProfile: z.partialRecord(PersonnelFieldKeySchema, z.enum(['CUEQ', 'SOURCE'])),
   })
   .strict();
 export const ReconcilePersonnelRecordSchema = z

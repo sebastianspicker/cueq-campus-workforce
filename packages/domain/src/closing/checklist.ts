@@ -1,5 +1,5 @@
 import type { CoreClosingContract } from '../generated/schema-contracts.js';
-import type { ChecklistItem, ChecklistSeverity } from '../types.js';
+import type { ChecklistFinding, ChecklistItem, ChecklistSeverity } from '../types.js';
 
 export type ClosingChecklistInput = CoreClosingContract['checklistInput'];
 
@@ -26,7 +26,10 @@ function statusFor(count: number): ChecklistItem['status'] {
  * roster mismatches, and balance anomalies. Each item is classified as
  * INFO, WARNING, or ERROR to guide the HR review process.
  */
-export function generateClosingChecklist(input: ClosingChecklistInput): ClosingChecklistResult {
+export function generateClosingChecklist(
+  input: ClosingChecklistInput,
+  findings: Partial<Record<string, ChecklistFinding[]>> = {},
+): ClosingChecklistResult {
   const missingTimeAccounts = input.missingTimeAccounts ?? 0;
   const items: ChecklistItem[] = [
     {
@@ -88,7 +91,10 @@ export function generateClosingChecklist(input: ClosingChecklistInput): ClosingC
   ];
 
   return {
-    items,
+    items: items.map((item) => {
+      const itemFindings = findings[item.code];
+      return itemFindings && itemFindings.length > 0 ? { ...item, findings: itemFindings } : item;
+    }),
     hasErrors: items.some((item) => item.severity === 'ERROR' && item.status !== 'RESOLVED'),
   };
 }

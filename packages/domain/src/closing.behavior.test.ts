@@ -62,6 +62,22 @@ describe('monthly closing rules through the public domain API', () => {
     );
   });
 
+  it('attaches findings only to items that have a non-empty list', () => {
+    const finding = { reason: 'NO_ACCOUNT', message: 'No time account.', personId: 'person-1' };
+    const checklist = generateClosingChecklist(
+      { ...greenChecklistInput, missingTimeAccounts: 1 },
+      { MISSING_TIME_ACCOUNTS: [finding], MISSING_BOOKINGS: [] },
+    );
+
+    expect(checklist.items.find((item) => item.code === 'MISSING_TIME_ACCOUNTS')?.findings).toEqual(
+      [finding],
+    );
+    expect(checklist.items.filter((item) => 'findings' in item)).toHaveLength(1);
+    expect(generateClosingChecklist(greenChecklistInput).items.some((i) => 'findings' in i)).toBe(
+      false,
+    );
+  });
+
   it('hashes semantically equal object payloads identically while retaining array order', () => {
     const checklist = generateClosingChecklist(greenChecklistInput);
     const base = {

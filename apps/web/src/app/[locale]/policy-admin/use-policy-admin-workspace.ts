@@ -13,6 +13,7 @@ import {
 import type { useTranslations } from 'next-intl';
 import { useReadRequests } from '../../../shared/workspace/use-read-requests';
 import { useApiContext } from '../../../platform/http/api-context';
+import { berlinToday } from '../../../shared/time/calendar-defaults';
 
 const WORKFLOW_TYPES = [
   'LEAVE_REQUEST',
@@ -28,7 +29,7 @@ export function usePolicyAdminWorkspace(t: TranslationFn) {
   const { apiBaseUrl, token, apiRequest } = useApiContext();
   const reads = useReadRequests(apiRequest);
 
-  const [asOf, setAsOf] = useState('2026-03-15');
+  const [asOf, setAsOf] = useState(() => berlinToday());
   const [bundle, setBundle] = useState<PolicyBundle | null>(null);
   const [wfType, setWfType] = useState<string>(WORKFLOW_TYPES[0]);
   const [wfEscDeadline, setWfEscDeadline] = useState(48);

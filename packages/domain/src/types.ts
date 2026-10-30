@@ -54,12 +54,25 @@ export type ChecklistSeverity = 'ERROR' | 'WARNING' | 'INFO';
 
 export type ChecklistStatus = 'OPEN' | 'ACKNOWLEDGED' | 'RESOLVED';
 
+export interface ChecklistFinding {
+  reason: string;
+  message: string;
+  personId?: string;
+  personName?: string;
+  assignmentId?: string;
+  bookingId?: string;
+  workflowId?: string;
+  from?: string;
+  to?: string;
+}
+
 export interface ChecklistItem {
   code: string;
   label: string;
   severity: ChecklistSeverity;
   status: ChecklistStatus;
   details?: string;
+  findings?: ChecklistFinding[];
 }
 
 export interface AuditEntryDraft {

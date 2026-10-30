@@ -1687,6 +1687,33 @@
         }
       }
     },
+    "/v1/time-types": {
+      "get": {
+        "operationId": "TimeTypesController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List active time types ordered by code",
+        "tags": [
+          "time-types"
+        ]
+      }
+    },
     "/v1/absences": {
       "post": {
         "operationId": "AbsencesController_create",

@@ -70,6 +70,16 @@ provides these local tokens:
 Mock authentication is for a trusted development machine. Do not expose the API
 to an untrusted network while it is enabled.
 
+### Monthly closing in a test session
+
+A closing period in review locks bookings and correction approvals. To fix a
+blocking checklist item, reopen the period, fix the bookings, prepare the time
+accounts, and start the review again. By default only the hourly cut-off job
+moves a reopened period back to review. The example environment file sets
+`CLOSING_ALLOW_MANUAL_REVIEW_START=true` for local test sessions, so the
+administrator can start the review from the closing page. Keep it `false` in
+shared or production environments.
+
 ## Work in one package
 
 Root commands are the normal choice because Turbo runs dependencies in the

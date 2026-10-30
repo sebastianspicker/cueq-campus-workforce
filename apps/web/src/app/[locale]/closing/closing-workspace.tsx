@@ -89,7 +89,7 @@ export function ClosingWorkspace({
                 result={actions.preparedAccounts}
               />
             ) : null}
-            <ChecklistSection t={t} checklist={periods.checklist} />
+            <ChecklistSection t={t} locale={locale} checklist={periods.checklist} />
             <div className="cq-closing-evidence-grid">
               <ApprovalChainSection t={t} locale={locale} period={periods.period} />
               <ExportsSection

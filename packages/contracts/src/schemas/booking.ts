@@ -26,20 +26,32 @@ export const CreateBookingSchema = z
   });
 export type CreateBooking = z.infer<typeof CreateBookingSchema>;
 
-export const BookingCorrectionSchema = z
-  .object({
-    bookingId: IdSchema,
-    assignmentId: IdSchema.optional(),
-    startTime: DateTimeSchema.optional(),
-    endTime: DateTimeSchema.optional(),
-    timeTypeId: IdSchema.optional(),
-    reason: z.string().min(10, 'Correction reason must be at least 10 characters'),
-  })
-  .superRefine((input, ctx) => {
-    validateOptionalDateTimeRange(input, ctx, 'endTime must be after startTime');
-    validateBookingDuration(input, ctx);
-  });
+const BookingCorrectionFieldsSchema = z.object({
+  bookingId: IdSchema,
+  assignmentId: IdSchema.optional(),
+  startTime: DateTimeSchema.optional(),
+  endTime: DateTimeSchema.optional(),
+  timeTypeId: IdSchema.optional(),
+});
+
+function validateBookingCorrectionRange(
+  input: { startTime?: string; endTime?: string },
+  ctx: z.RefinementCtx,
+) {
+  validateOptionalDateTimeRange(input, ctx, 'endTime must be after startTime');
+  validateBookingDuration(input, ctx);
+}
+
+export const BookingCorrectionSchema = BookingCorrectionFieldsSchema.extend({
+  reason: z.string().min(10, 'Correction reason must be at least 10 characters'),
+}).superRefine(validateBookingCorrectionRange);
 export type BookingCorrection = z.infer<typeof BookingCorrectionSchema>;
+
+/** Correction payload as stored on the workflow; the reason lives on the workflow itself. */
+export const BookingCorrectionPayloadSchema = BookingCorrectionFieldsSchema.superRefine(
+  validateBookingCorrectionRange,
+);
+export type BookingCorrectionPayload = z.infer<typeof BookingCorrectionPayloadSchema>;
 
 export const BookingSchema = z.object({
   id: IdSchema,

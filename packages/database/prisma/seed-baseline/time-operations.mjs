@@ -97,6 +97,16 @@ export async function seedTimeOperations(prisma, IDs) {
         source: BookingSource.WEB,
       },
       {
+        id: IDs.bookingEmployeePause,
+        personId: IDs.personEmployee,
+
+        assignmentId: legacyAssignmentId(IDs.personEmployee),
+        timeTypeId: IDs.timeTypePause,
+        startTime: new Date('2026-03-02T12:00:00.000Z'),
+        endTime: new Date('2026-03-02T13:00:00.000Z'),
+        source: BookingSource.WEB,
+      },
+      {
         id: IDs.bookingOncallDeployment,
         personId: IDs.personItOncall,
 

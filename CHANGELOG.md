@@ -14,6 +14,9 @@ a published release.
 - GitHub configuration for dependency updates and generated release notes.
 - Architecture checks for workspace dependencies, API feature imports, module
   cycles, and writes that involve more than one feature.
+- Pickers for time types, people and organization units in the
+  booking-correction, approval-delegation, roster-draft and
+  post-close-correction forms, backed by a new `GET /v1/time-types` endpoint.
 
 ### Changed
 
@@ -27,6 +30,8 @@ a published release.
   Binding development servers to another interface requires `CUEQ_DEV_HOST`.
 - Replaced the Pages screenshot viewer with an interactive, responsive demo.
 - Simplified the GitHub issue and pull request templates.
+- Migrated validation contracts to Zod 4.6.7 to address a dependency security
+  advisory.
 
 ### Fixed
 
@@ -56,3 +61,6 @@ a published release.
   2.9.14, and transitive overrides to address reported dependency advisories.
 - Updated Next.js and its ESLint plugin to 15.5.24, Sharp to 0.35.4, js-yaml
   to 4.3.2, and Multer to 2.3.0 to address dependency security advisories.
+- Updated Next.js and its ESLint plugin to 15.5.28, Sharp to 0.35.5, qs to
+  6.16.1, body-parser to 2.4.0 and Multer to 2.5.0, and pinned proxy-addr 2.0.8
+  and source-map-js 1.2.2, to address dependency security advisories.

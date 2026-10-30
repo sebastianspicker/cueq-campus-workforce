@@ -5,6 +5,10 @@ import { BookingPageSchema, WorkflowInstanceSchema } from '@cueq/contracts';
 import type { useTranslations } from 'next-intl';
 import { mergePage, pagePath } from '../../../shared/workspace/cursor-pages';
 import { useReadRequests } from '../../../shared/workspace/use-read-requests';
+import {
+  isoInstantToLocalDateTimeInput,
+  localDateTimeInputToIsoInstant,
+} from '../../../shared/time/datetime-local';
 import { useApiContext } from '../../../platform/http/api-context';
 import {
   loadAndApply,
@@ -67,6 +71,19 @@ export function useBookingsWorkspace(t: TranslationFn) {
     const nextFieldErrors: Record<string, string> = {};
     if (!bookingId) nextFieldErrors.bookingId = t('bookingIdRequired');
     if (!reason) nextFieldErrors.reason = t('reasonRequired');
+    const selected = bookings.find((booking) => booking.id === bookingId);
+    // Unchanged values are omitted so that seconds hidden by the input are not rewritten.
+    const changedInstant = (input: string, original: string | null | undefined) => {
+      if (!input || input === (original ? isoInstantToLocalDateTimeInput(original) : '')) {
+        return { value: undefined, valid: true };
+      }
+      const value = localDateTimeInputToIsoInstant(input);
+      return { value: value ?? undefined, valid: value !== null };
+    };
+    const start = changedInstant(startTime, selected?.startTime);
+    const end = changedInstant(endTime, selected?.endTime);
+    if (!start.valid) nextFieldErrors.startTime = t('invalidDateTime');
+    if (!end.valid) nextFieldErrors.endTime = t('invalidDateTime');
     if (Object.keys(nextFieldErrors).length > 0) {
       setFieldErrors(nextFieldErrors);
       return;
@@ -83,9 +100,9 @@ export function useBookingsWorkspace(t: TranslationFn) {
             method: 'POST',
             body: JSON.stringify({
               bookingId,
-              assignmentId: bookings.find((booking) => booking.id === bookingId)?.assignmentId,
-              startTime: startTime || undefined,
-              endTime: endTime || undefined,
+              assignmentId: selected?.assignmentId,
+              startTime: start.value,
+              endTime: end.value,
               timeTypeId: timeTypeId || undefined,
               reason,
             }),
@@ -109,7 +126,12 @@ export function useBookingsWorkspace(t: TranslationFn) {
 
   function updateBookingId(value: string) {
     setBookingId(value);
-    setFieldErrors((current) => ({ ...current, bookingId: '' }));
+    const selected = bookings.find((booking) => booking.id === value);
+    // Clear values pre-filled from another booking so they are not sent as edits for this one.
+    setStartTime(selected ? isoInstantToLocalDateTimeInput(selected.startTime) : '');
+    setEndTime(selected?.endTime ? isoInstantToLocalDateTimeInput(selected.endTime) : '');
+    setTimeTypeId('');
+    setFieldErrors((current) => ({ ...current, bookingId: '', startTime: '', endTime: '' }));
   }
 
   function updateReason(value: string) {

@@ -24,7 +24,7 @@ export const PolicyViolationSchema = z.object({
   ruleName: z.string(),
   severity: z.enum(['ERROR', 'WARNING', 'INFO']),
   message: z.string(),
-  context: z.record(z.unknown()).optional(),
+  context: z.record(z.string(), z.unknown()).optional(),
 });
 export type PolicyViolation = z.infer<typeof PolicyViolationSchema>;
 

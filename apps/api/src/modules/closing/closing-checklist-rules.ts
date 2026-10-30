@@ -1,13 +1,17 @@
 /** Evaluates pure booking-derived metrics for the closing checklist. */
 import { TimeTypeCategory } from '@cueq/database';
 import { MAX_BOOKING_DURATION_MS } from '@cueq/contracts';
-import { evaluateTimeRules } from '@cueq/domain';
+import { evaluateTimeRules, type ChecklistFinding } from '@cueq/domain';
 import { DEFAULT_MAX_HOURS_RULE, DEFAULT_REST_RULE } from '@cueq/policy';
 import { closingBookingGapMinutes } from './closing-config.js';
+
+/** Maximum findings attached to one checklist item; counts stay uncapped. */
+export const MAX_CHECKLIST_FINDINGS = 20;
 
 type ClosingRuleTimeType = 'WORK' | 'DEPLOYMENT' | 'PAUSE';
 
 export type ClosingChecklistBooking = {
+  id: string;
   personId: string;
   assignmentId: string;
   startTime: Date;
@@ -94,11 +98,11 @@ function bookingGapCount(bookingsByPerson: Map<string, RuleBooking[]>): number {
   return gaps;
 }
 
-function policyViolationCount(
+function policyViolations(
   entries: RuleBooking[],
   periodId: string,
   timeThresholds: ClosingTimeThresholds,
-): number {
+) {
   return evaluateTimeRules(
     {
       week: `closing-${periodId}`,
@@ -118,24 +122,44 @@ function policyViolationCount(
       },
       restRule: { ...DEFAULT_REST_RULE, minRestHours: timeThresholds.minRestMinutes / 60 },
     },
-  ).violations.length;
+  ).violations;
 }
 
-function ruleViolationCount(
+function ruleViolationFindings(
   bookings: ClosingChecklistBooking[],
   bookingsByPerson: Map<string, RuleBooking[]>,
   periodId: string,
   timeThresholds: ClosingTimeThresholds,
-): number {
-  let violations = bookings.filter(
-    (booking) =>
-      booking.endTime === null ||
-      booking.endTime.getTime() - booking.startTime.getTime() > MAX_BOOKING_DURATION_MS,
-  ).length;
-  for (const entries of bookingsByPerson.values()) {
-    violations += policyViolationCount(entries, periodId, timeThresholds);
+): ChecklistFinding[] {
+  const findings: ChecklistFinding[] = [];
+  for (const booking of bookings) {
+    if (booking.endTime === null) {
+      findings.push({
+        reason: 'OPEN_BOOKING',
+        message: 'Booking has no end time.',
+        personId: booking.personId,
+        assignmentId: booking.assignmentId,
+        bookingId: booking.id,
+        from: booking.startTime.toISOString(),
+      });
+    } else if (booking.endTime.getTime() - booking.startTime.getTime() > MAX_BOOKING_DURATION_MS) {
+      findings.push({
+        reason: 'OVERSIZED_BOOKING',
+        message: 'Booking exceeds the maximum allowed duration.',
+        personId: booking.personId,
+        assignmentId: booking.assignmentId,
+        bookingId: booking.id,
+        from: booking.startTime.toISOString(),
+        to: booking.endTime.toISOString(),
+      });
+    }
   }
-  return violations;
+  for (const [personId, entries] of bookingsByPerson) {
+    for (const violation of policyViolations(entries, periodId, timeThresholds)) {
+      findings.push({ reason: violation.code, message: violation.message, personId });
+    }
+  }
+  return findings;
 }
 
 export function calculateClosingBookingMetrics(
@@ -147,15 +171,41 @@ export function calculateClosingBookingMetrics(
   periodStart: Date,
   periodEnd: Date,
   timeThresholds: ClosingTimeThresholds,
+  appointments: Array<{ personId: string; assignmentId: string }> = [],
 ) {
   const coveredAssignmentIds = new Set([
     ...coverageBookings.filter(isCompletedWorkBooking).map((booking) => booking.assignmentId),
     ...approvedAbsences.map((absence) => absence.assignmentId),
   ]);
   const bookingsByPerson = ruleBookingsByPerson(ruleBookings, periodStart, periodEnd);
+  const ruleFindings = ruleViolationFindings(
+    ruleBookings,
+    bookingsByPerson,
+    periodId,
+    timeThresholds,
+  );
+  // Rules count all of a person's bookings, but booking details are shown only for this unit's appointments.
+  const appointmentIds = new Set(appointments.map((appointment) => appointment.assignmentId));
+  const visibleRuleFindings = ruleFindings.filter(
+    (finding) => !finding.assignmentId || appointmentIds.has(finding.assignmentId),
+  );
   return {
     missingBookings: Math.max(appointmentCount - coveredAssignmentIds.size, 0),
     bookingGaps: bookingGapCount(bookingsByPerson),
-    ruleViolations: ruleViolationCount(ruleBookings, bookingsByPerson, periodId, timeThresholds),
+    ruleViolations: ruleFindings.length,
+    findings: {
+      MISSING_BOOKINGS: appointments
+        .filter((appointment) => !coveredAssignmentIds.has(appointment.assignmentId))
+        .map(
+          (appointment): ChecklistFinding => ({
+            reason: 'NO_BOOKING_OR_ABSENCE',
+            message: 'Appointment has no booking and no approved absence in the period.',
+            personId: appointment.personId,
+            assignmentId: appointment.assignmentId,
+          }),
+        )
+        .slice(0, MAX_CHECKLIST_FINDINGS),
+      RULE_VIOLATIONS: visibleRuleFindings.slice(0, MAX_CHECKLIST_FINDINGS),
+    },
   };
 }

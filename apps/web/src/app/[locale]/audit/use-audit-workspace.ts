@@ -15,6 +15,7 @@ import {
   getStoredPreference,
   PAGE_SIZE_PREFERENCE_SLOT,
 } from '../../../platform/browser/preferences';
+import { berlinMonth, monthBounds } from '../../../shared/time/calendar-defaults';
 
 export function useAuditWorkspace() {
   const t = useTranslations('pages.audit');
@@ -22,8 +23,8 @@ export function useAuditWorkspace() {
   const reads = useReadRequests(apiRequest);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [from, setFrom] = useState('2026-03-01');
-  const [to, setTo] = useState('2026-03-31');
+  const [from, setFrom] = useState(() => monthBounds(berlinMonth()).first);
+  const [to, setTo] = useState(() => monthBounds(berlinMonth()).last);
   const [pageSize, setPageSize] = useState(20);
   const [summary, setSummary] = useState<AuditSummaryReport | null>(null);
   const [entriesLoading, setEntriesLoading] = useState(false);

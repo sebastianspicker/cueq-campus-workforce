@@ -1,7 +1,7 @@
 /** Request-validation adapter that translates Zod failures into stable API 400 responses. */
 import type { PipeTransform } from '@nestjs/common';
 import { BadRequestException } from '@nestjs/common';
-import type { ZodType, ZodTypeDef, ZodError } from 'zod';
+import type { ZodType, ZodError } from 'zod';
 
 /**
  * NestJS pipe that validates and transforms the incoming payload using a Zod schema.
@@ -15,7 +15,7 @@ import type { ZodType, ZodTypeDef, ZodError } from 'zod';
  * On validation failure, throws a 400 BadRequestException with structured issue details.
  */
 export class ZodValidationPipe<T> implements PipeTransform<unknown, T> {
-  constructor(private readonly schema: ZodType<T, ZodTypeDef, unknown>) {}
+  constructor(private readonly schema: ZodType<T, unknown>) {}
 
   transform(value: unknown): T {
     const result = this.schema.safeParse(value ?? {});
@@ -36,6 +36,6 @@ export class ZodValidationPipe<T> implements PipeTransform<unknown, T> {
 }
 
 /** Validate service entrypoints that are also called outside HTTP controllers. */
-export function parseRequest<T>(schema: ZodType<T, ZodTypeDef, unknown>, input: unknown): T {
+export function parseRequest<T>(schema: ZodType<T, unknown>, input: unknown): T {
   return new ZodValidationPipe(schema).transform(input);
 }

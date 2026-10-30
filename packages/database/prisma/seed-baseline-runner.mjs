@@ -38,6 +38,7 @@ const IDs = {
   bookingEmployeeIn: cuidFor(400),
   bookingEmployeeOut: cuidFor(401),
   bookingOncallDeployment: cuidFor(402),
+  bookingEmployeePause: cuidFor(403),
   absenceAnnual: cuidFor(500),
   absenceSick: cuidFor(501),
   workflowCorrection: cuidFor(600),

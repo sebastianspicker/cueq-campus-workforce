@@ -27,6 +27,7 @@ import {
   type OeOvertimeReport,
   type TeamAbsenceReport,
 } from './report-results';
+import { berlinMonth, monthBounds } from '../../../shared/time/calendar-defaults';
 
 interface CustomReportOptions {
   reportTypes: string[];
@@ -51,8 +52,8 @@ export default function ReportsPage() {
   const t = useTranslations('pages.reports');
   const { apiBaseUrl, token, apiRequest } = useApiContext();
   const { profile } = useSessionContext();
-  const [from, setFrom] = useState('2026-03-01');
-  const [to, setTo] = useState('2026-03-31');
+  const [from, setFrom] = useState(() => monthBounds(berlinMonth()).first);
+  const [to, setTo] = useState(() => monthBounds(berlinMonth()).last);
   const [organizationUnitId, setOrganizationUnitId] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

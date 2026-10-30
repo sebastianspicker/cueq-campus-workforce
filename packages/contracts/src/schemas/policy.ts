@@ -20,7 +20,7 @@ export const PolicyCatalogEntrySchema = z.object({
   effectiveTo: z.string().date().nullable(),
   createdAt: z.string().datetime(),
   createdBy: z.string(),
-  payload: z.record(z.unknown()),
+  payload: z.record(z.string(), z.unknown()),
 });
 export type PolicyCatalogEntry = z.infer<typeof PolicyCatalogEntrySchema>;
 

@@ -1,8 +1,16 @@
 'use client';
 
 import Link from 'next/link';
+import { useState } from 'react';
 import type { CueqRole } from '../../../components/AppWorkspace';
+import { FormField } from '../../../components/FormField';
 import { SectionCard } from '../../../components/SectionCard';
+import { PersonPicker } from '../../../shared/native-hr/person-picker';
+import { TimeTypePicker } from '../../../shared/native-hr/time-type-picker';
+import {
+  isoInstantToLocalDateTimeInput,
+  localDateTimeInputToIsoInstant,
+} from '../../../shared/time/datetime-local';
 import {
   canManageClosingPeriod,
   createClosingActionDescriptors,
@@ -32,6 +40,7 @@ interface ActionsSectionProps {
 
 function preferredAction(actions: ClosingActionDescriptor[], period: ClosingPeriod | null) {
   const preferredByStatus: Record<string, ClosingActionId> = {
+    OPEN: 'start-review',
     REVIEW: actions.some((action) => action.id === 'lead-approve') ? 'lead-approve' : 'approve',
     APPROVED: 'export',
     CLOSED: 'export',
@@ -147,40 +156,68 @@ interface CorrectionSectionProps {
   workflowApproved: boolean;
 }
 
+/** Edits an ISO instant as a Berlin wall-clock value; an invalid entry clears the instant. */
+function InstantField({
+  label,
+  invalidLabel,
+  value,
+  onChange,
+}: {
+  label: string;
+  invalidLabel: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const [draft, setDraft] = useState(() => isoInstantToLocalDateTimeInput(value));
+  const [invalid, setInvalid] = useState(false);
+  return (
+    <FormField label={label} required error={invalid ? invalidLabel : undefined}>
+      <input
+        type="datetime-local"
+        value={draft}
+        required
+        onChange={(event) => {
+          const next = event.target.value;
+          const instant = localDateTimeInputToIsoInstant(next);
+          setDraft(next);
+          setInvalid(instant === null);
+          onChange(instant ?? '');
+        }}
+      />
+    </FormField>
+  );
+}
+
 function CorrectionPayloadFields({ form }: { form: CorrectionSectionProps }) {
   const updatePayload = (change: Partial<ApplyCorrectionPayload>) =>
     form.onCorrectionPayloadChange({ ...form.correctionPayload, ...change });
 
   return (
     <div className="cq-grid-2">
-      <label className="cq-form-field">
-        <span>{form.t('personIdLabel')}</span>
-        <input
-          value={form.correctionPayload.personId}
-          onChange={(event) => updatePayload({ personId: event.target.value })}
-        />
-      </label>
-      <label className="cq-form-field">
-        <span>{form.t('timeTypeIdLabel')}</span>
-        <input
-          value={form.correctionPayload.timeTypeId}
-          onChange={(event) => updatePayload({ timeTypeId: event.target.value })}
-        />
-      </label>
-      <label className="cq-form-field">
-        <span>{form.t('startTimeLabel')}</span>
-        <input
-          value={form.correctionPayload.startTime}
-          onChange={(event) => updatePayload({ startTime: event.target.value })}
-        />
-      </label>
-      <label className="cq-form-field">
-        <span>{form.t('endTimeLabel')}</span>
-        <input
-          value={form.correctionPayload.endTime}
-          onChange={(event) => updatePayload({ endTime: event.target.value })}
-        />
-      </label>
+      <PersonPicker
+        label={form.t('personIdLabel')}
+        value={form.correctionPayload.personId}
+        onChange={(personId) => updatePayload({ personId })}
+        required
+      />
+      <TimeTypePicker
+        label={form.t('timeTypeIdLabel')}
+        value={form.correctionPayload.timeTypeId}
+        onChange={(timeTypeId) => updatePayload({ timeTypeId })}
+        required
+      />
+      <InstantField
+        label={form.t('startTimeLabel')}
+        invalidLabel={form.t('invalidDateTime')}
+        value={form.correctionPayload.startTime}
+        onChange={(startTime) => updatePayload({ startTime })}
+      />
+      <InstantField
+        label={form.t('endTimeLabel')}
+        invalidLabel={form.t('invalidDateTime')}
+        value={form.correctionPayload.endTime}
+        onChange={(endTime) => updatePayload({ endTime })}
+      />
       <label className="cq-form-field cq-full-span">
         <span>{form.t('reasonLabel')}</span>
         <input

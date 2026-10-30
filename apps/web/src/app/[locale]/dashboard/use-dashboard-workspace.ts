@@ -20,6 +20,7 @@ import {
   type RefreshResult,
 } from '../../../shared/workspace/mutation-refresh';
 import type { DashboardBooking, DashboardSummary } from './types';
+import { berlinMonth, monthBounds } from '../../../shared/time/calendar-defaults';
 
 type TranslationFn = ReturnType<typeof useTranslations>;
 
@@ -31,8 +32,12 @@ export function useDashboardWorkspace(t: TranslationFn, locale: string) {
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [bookings, setBookings] = useState<DashboardBooking[]>([]);
   const [overtimeHours, setOvertimeHours] = useState('2');
-  const [overtimePeriodStart, setOvertimePeriodStart] = useState('2026-03-01T00:00:00.000Z');
-  const [overtimePeriodEnd, setOvertimePeriodEnd] = useState('2026-03-31T23:59:59.000Z');
+  const [overtimePeriodStart, setOvertimePeriodStart] = useState(
+    () => `${monthBounds(berlinMonth()).first}T00:00:00.000Z`,
+  );
+  const [overtimePeriodEnd, setOvertimePeriodEnd] = useState(
+    () => `${monthBounds(berlinMonth()).last}T23:59:59.000Z`,
+  );
   const [overtimeReason, setOvertimeReason] = useState(t('overtimeReasonDefault'));
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);

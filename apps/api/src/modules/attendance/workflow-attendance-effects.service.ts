@@ -2,7 +2,7 @@
 import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { WorkflowType } from '@cueq/database';
 import {
-  BookingCorrectionSchema,
+  BookingCorrectionPayloadSchema,
   isBookingDurationAllowed,
   OvertimeApprovalRequestSchema,
 } from '@cueq/contracts';
@@ -35,7 +35,7 @@ function assertCorrectionAssignment(
 }
 
 function correctedBookingRange(
-  correction: ReturnType<typeof BookingCorrectionSchema.parse>,
+  correction: ReturnType<typeof BookingCorrectionPayloadSchema.parse>,
   booking: BookingForCorrection,
 ) {
   const startTime = correction.startTime ? new Date(correction.startTime) : booking.startTime;
@@ -102,7 +102,7 @@ export class WorkflowAttendanceEffectsService implements AttendanceWorkflowEffec
     reason: string | undefined,
     tx: WorkflowEffectInput['tx'],
   ) {
-    const correction = BookingCorrectionSchema.parse(decision.requestPayload ?? {});
+    const correction = BookingCorrectionPayloadSchema.parse(decision.requestPayload ?? {});
     if (correction.bookingId !== decision.entityId) {
       throw new BadRequestException(
         'Booking correction payload does not match its workflow target.',

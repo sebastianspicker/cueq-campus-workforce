@@ -88,7 +88,7 @@ the key-rotation procedure in [Operations](OPERATIONS.md).
 | Variable                            | Default         | Description                                                             |
 | ----------------------------------- | --------------- | ----------------------------------------------------------------------- |
 | `CLOSING_AUTO_CUTOFF_ENABLED`       | `true`          | Enables the automatic cut-off transition                                |
-| `CLOSING_ALLOW_MANUAL_REVIEW_START` | `false`         | Allows an emergency manual start of review                              |
+| `CLOSING_ALLOW_MANUAL_REVIEW_START` | `false`         | Allows a manual review start (emergencies, local test sessions)         |
 | `CLOSING_CUTOFF_DAY`                | `3`             | Day of the next month, limited to 1 through 28                          |
 | `CLOSING_CUTOFF_HOUR`               | `12`            | Local hour, limited to 0 through 23                                     |
 | `CLOSING_TIMEZONE`                  | `Europe/Berlin` | IANA time zone; invalid values fall back to `Europe/Berlin`             |

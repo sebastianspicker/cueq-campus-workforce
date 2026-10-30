@@ -17,6 +17,7 @@ import {
 import type { Prisma } from '@cueq/database';
 import { SplitTimeAccountSchema, TimeAccountQuerySchema } from '@cueq/contracts';
 import type {
+  MissingTimeAccount,
   TimeAccountClosingPeriod,
   TimeAccountReadClient,
   TimeAccountsPort,
@@ -191,16 +192,40 @@ export class TimeAccountService implements TimeAccountsPort {
     });
   }
 
-  async countMissingForClosing(tx: TimeAccountReadClient, period: TimeAccountClosingPeriod) {
+  async listMissingForClosing(
+    tx: TimeAccountReadClient,
+    period: TimeAccountClosingPeriod,
+  ): Promise<MissingTimeAccount[]> {
     await lockEmploymentPopulationWrites(tx);
     const plan = await this.buildPlan(tx, period);
     const coverage = await this.loadCoverage(tx, period, plan.segments);
-    const missing = plan.segments.reduce((count, segment) => {
+    const missing: MissingTimeAccount[] = [];
+    for (const segment of plan.segments) {
       const key = `${segment.assignmentId}|${intervalKey(segment.periodStart, segment.periodEnd)}`;
       const account = coverage.exact.get(key);
-      return count + (account && accountMatchesCalculation(account, segment) ? 0 : 1);
-    }, 0);
-    return missing + (coverage.incompatible ? 1 : 0);
+      if (account && accountMatchesCalculation(account, segment)) continue;
+      missing.push({
+        reason: account ? 'OUTDATED_ACCOUNT' : 'NO_ACCOUNT',
+        personId: segment.personId,
+        assignmentId: segment.assignmentId,
+        periodStart: segment.periodStart,
+        periodEnd: segment.periodEnd,
+      });
+    }
+    if (coverage.incompatible) {
+      missing.push({
+        reason: 'INCOMPATIBLE_ACCOUNT',
+        personId: coverage.incompatible.personId,
+        assignmentId: coverage.incompatible.assignmentId,
+        periodStart: coverage.incompatible.periodStart,
+        periodEnd: coverage.incompatible.periodEnd,
+      });
+    }
+    return missing;
+  }
+
+  async countMissingForClosing(tx: TimeAccountReadClient, period: TimeAccountClosingPeriod) {
+    return (await this.listMissingForClosing(tx, period)).length;
   }
 
   async assertCompleteForClosing(tx: TimeAccountReadClient, period: TimeAccountClosingPeriod) {
@@ -445,7 +470,7 @@ export class TimeAccountService implements TimeAccountsPort {
     segments: PlannedSegment[],
   ) {
     const assignmentIds = [...new Set(segments.map((segment) => segment.assignmentId))];
-    if (!assignmentIds.length) return { exact: new Map<string, AccountRow>(), incompatible: false };
+    if (!assignmentIds.length) return { exact: new Map<string, AccountRow>(), incompatible: null };
     const accounts = await tx.timeAccount.findMany({
       where: {
         assignmentId: { in: assignmentIds },
@@ -454,7 +479,7 @@ export class TimeAccountService implements TimeAccountsPort {
       },
     });
     const exact = new Map<string, AccountRow>();
-    let incompatible = false;
+    let incompatible: AccountRow | null = null;
     for (const account of accounts) {
       const key = `${account.assignmentId}|${intervalKey(account.periodStart, account.periodEnd)}`;
       const expected = segments.find(
@@ -470,7 +495,7 @@ export class TimeAccountService implements TimeAccountsPort {
             segment.assignmentId === account.assignmentId && intervalsOverlap(account, segment),
         )
       ) {
-        incompatible = true;
+        incompatible ??= account;
       }
     }
     return { exact, incompatible };

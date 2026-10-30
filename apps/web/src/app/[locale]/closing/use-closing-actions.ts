@@ -15,6 +15,7 @@ import {
   requestWorkflowApproval,
 } from './closing-action-requests';
 import { useClosingActionFeedback } from './use-closing-action-feedback';
+import { berlinInstant, berlinMonth } from '../../../shared/time/calendar-defaults';
 
 type TranslationFn = ReturnType<typeof useTranslations>;
 
@@ -33,15 +34,15 @@ export function useClosingActions(
   const [workflowReason, setWorkflowReason] = useState(t('workflowReasonDefault'));
   const [workflowApproved, setWorkflowApproved] = useState(false);
   const [exportFormat, setExportFormat] = useState<'CSV_V2' | 'XML_V2'>('CSV_V2');
-  const [correctionPayload, setCorrectionPayload] = useState<ApplyCorrectionPayload>({
+  const [correctionPayload, setCorrectionPayload] = useState<ApplyCorrectionPayload>(() => ({
     workflowId: '',
     personId: '',
     timeTypeId: '',
-    startTime: '2026-03-10T09:00:00.000Z',
-    endTime: '2026-03-10T11:00:00.000Z',
+    startTime: berlinInstant(`${berlinMonth(new Date(), -1)}-10`, '09:00'),
+    endTime: berlinInstant(`${berlinMonth(new Date(), -1)}-10`, '11:00'),
     reason: t('correctionReasonDefault'),
     note: '',
-  });
+  }));
   const { loading, message, error, setError, runSavedAction } = useClosingActionFeedback(
     t,
     reload,

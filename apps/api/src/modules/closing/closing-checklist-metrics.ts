@@ -7,6 +7,7 @@ import {
   WorkflowType,
   type ClosingStatus,
 } from '@cueq/database';
+import type { ChecklistFinding } from '@cueq/domain';
 import type { PrismaService } from '../../persistence/prisma.service.js';
 import {
   buildRosterPlanVsActualFromBookings,
@@ -15,6 +16,7 @@ import {
 } from '../../application/roster/plan-vs-actual-coverage.js';
 import {
   calculateClosingBookingMetrics,
+  MAX_CHECKLIST_FINDINGS,
   type ClosingChecklistBooking,
   type ClosingTimeThresholds,
 } from './closing-checklist-rules.js';
@@ -28,6 +30,7 @@ export type ClosingDb = Pick<
   | 'closingPeriod'
   | 'employmentAssignment'
   | 'employmentTerm'
+  | 'person'
   | 'booking'
   | 'absence'
   | 'workflowInstance'
@@ -49,7 +52,7 @@ export async function calculateClosingChecklistMetrics(
   period: ChecklistPeriod,
   getActiveThresholds: () => Promise<ClosingTimeThresholds>,
   assignmentHelper: Pick<AssignmentHelper, 'resolveInterval'>,
-  timeAccounts: Pick<TimeAccountsPort, 'countMissingForClosing'>,
+  timeAccounts: Pick<TimeAccountsPort, 'listMissingForClosing'>,
 ) {
   const [population, timeThresholds] = await Promise.all([
     closingPopulation(db, period),
@@ -70,23 +73,87 @@ export async function calculateClosingChecklistMetrics(
     period.periodStart,
     period.periodEnd,
     timeThresholds,
+    population.appointments,
   );
-  const [requests, rosterMismatches, balanceAnomalies, missingTimeAccounts] = await Promise.all([
-    openRequestCounts(db, period, population.assignmentIds, assignmentHelper),
+  const { findings: bookingFindings, ...bookingCounts } = bookingMetrics;
+  const [requests, rosterMismatches, balanceAnomalies, missingAccounts] = await Promise.all([
+    openRequestCounts(db, period, population.appointments, assignmentHelper),
     rosterMismatchCount(db, period, assignmentHelper),
     balanceAnomalyCount(db, period, population.assignmentIds),
-    timeAccounts.countMissingForClosing(db, period),
+    timeAccounts.listMissingForClosing(db, period),
   ]);
+  const { openCorrectionFindings, ...requestCounts } = requests;
+  const findings = await withPersonNames(db, {
+    MISSING_TIME_ACCOUNTS: missingAccounts.slice(0, MAX_CHECKLIST_FINDINGS).map(
+      (account): ChecklistFinding => ({
+        reason: account.reason,
+        message: MISSING_ACCOUNT_MESSAGES[account.reason],
+        personId: account.personId,
+        assignmentId: account.assignmentId,
+        from: account.periodStart.toISOString(),
+        to: account.periodEnd.toISOString(),
+      }),
+    ),
+    MISSING_BOOKINGS: bookingFindings.MISSING_BOOKINGS,
+    OPEN_CORRECTIONS: openCorrectionFindings,
+    RULE_VIOLATIONS: bookingFindings.RULE_VIOLATIONS,
+  });
   return {
-    ...bookingMetrics,
-    ...requests,
-    rosterMismatches,
-    balanceAnomalies,
-    missingTimeAccounts,
+    metrics: {
+      ...bookingCounts,
+      ...requestCounts,
+      rosterMismatches,
+      balanceAnomalies,
+      missingTimeAccounts: missingAccounts.length,
+    },
+    findings,
   };
 }
 
-type ClosingPopulation = { personIds: string[]; assignmentIds: string[] };
+const MISSING_ACCOUNT_MESSAGES = {
+  NO_ACCOUNT: 'No time account exists for this appointment interval.',
+  OUTDATED_ACCOUNT: 'The stored time account no longer matches the recalculated hours.',
+  INCOMPATIBLE_ACCOUNT:
+    'An existing time account has boundaries incompatible with the appointment.',
+} as const;
+
+/** Adds `personName` to every finding with a person id using one batched person lookup. */
+async function withPersonNames(
+  db: ClosingDb,
+  findings: Record<string, ChecklistFinding[]>,
+): Promise<Record<string, ChecklistFinding[]>> {
+  const personIds = [
+    ...new Set(
+      Object.values(findings).flatMap((list) =>
+        list.flatMap((finding) => (finding.personId ? [finding.personId] : [])),
+      ),
+    ),
+  ];
+  if (personIds.length === 0) return findings;
+
+  const people = await db.person.findMany({
+    where: { id: { in: personIds } },
+    select: { id: true, firstName: true, lastName: true },
+  });
+  const names = new Map(
+    people.map((person) => [person.id, `${person.firstName} ${person.lastName}`]),
+  );
+  return Object.fromEntries(
+    Object.entries(findings).map(([code, list]) => [
+      code,
+      list.map((finding) => {
+        const personName = finding.personId ? names.get(finding.personId) : undefined;
+        return personName ? { ...finding, personName } : finding;
+      }),
+    ]),
+  );
+}
+
+type ClosingPopulation = {
+  personIds: string[];
+  assignmentIds: string[];
+  appointments: Array<{ personId: string; assignmentId: string }>;
+};
 
 async function closingPopulation(
   db: ClosingDb,
@@ -115,6 +182,10 @@ async function closingPopulation(
   return {
     assignmentIds: assignments.map((assignment) => assignment.id),
     personIds: [...new Set(assignments.map((assignment) => assignment.personId))],
+    appointments: assignments.map((assignment) => ({
+      personId: assignment.personId,
+      assignmentId: assignment.id,
+    })),
   };
 }
 
@@ -140,6 +211,7 @@ async function closingBookingsAndAbsences(
         OR: [{ endTime: null }, { endTime: { gte: period.periodStart } }],
       },
       select: {
+        id: true,
         personId: true,
         assignmentId: true,
         startTime: true,
@@ -196,15 +268,20 @@ async function closingBookingsAndAbsences(
 async function openRequestCounts(
   db: ClosingDb,
   period: ChecklistPeriod,
-  assignmentIds: string[],
+  appointments: ClosingPopulation['appointments'],
   assignmentHelper: Pick<AssignmentHelper, 'resolveInterval'>,
 ) {
+  const assignmentIds = appointments.map((appointment) => appointment.assignmentId);
   if (assignmentIds.length === 0) {
-    return Promise.resolve({ openCorrectionRequests: 0, openLeaveRequests: 0 });
+    return Promise.resolve({
+      openCorrectionRequests: 0,
+      openLeaveRequests: 0,
+      openCorrectionFindings: [] as ChecklistFinding[],
+    });
   }
 
-  const [openCorrectionRequests, requestedAbsences] = await Promise.all([
-    db.workflowInstance.count({
+  const [openCorrections, requestedAbsences] = await Promise.all([
+    db.workflowInstance.findMany({
       where: {
         type: WorkflowType.BOOKING_CORRECTION,
         status: {
@@ -213,6 +290,8 @@ async function openRequestCounts(
         assignmentId: { in: assignmentIds },
         createdAt: { gte: period.periodStart, lte: period.periodEnd },
       },
+      select: { id: true, assignmentId: true, entityId: true },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
     }),
     db.absence.findMany({
       where: {
@@ -237,7 +316,24 @@ async function openRequestCounts(
       openLeaveRequests += 1;
     }
   }
-  return { openCorrectionRequests, openLeaveRequests };
+  // The appointment owner, not the requester: HR may file corrections on someone's behalf.
+  const ownerByAssignment = new Map(
+    appointments.map((appointment) => [appointment.assignmentId, appointment.personId]),
+  );
+  const openCorrectionFindings = openCorrections.slice(0, MAX_CHECKLIST_FINDINGS).map(
+    (workflow): ChecklistFinding => ({
+      reason: 'OPEN_CORRECTION',
+      message: 'Booking correction request is still open.',
+      personId: workflow.assignmentId ? ownerByAssignment.get(workflow.assignmentId) : undefined,
+      workflowId: workflow.id,
+      bookingId: workflow.entityId,
+    }),
+  );
+  return {
+    openCorrectionRequests: openCorrections.length,
+    openLeaveRequests,
+    openCorrectionFindings,
+  };
 }
 
 async function rosterMismatchCount(

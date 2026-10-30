@@ -3,6 +3,7 @@
 import type { useTranslations } from 'next-intl';
 import { SectionCard } from '../../../components/SectionCard';
 import { StatusBadge } from '../../../components/StatusBadge';
+import { OrganizationPicker } from '../../../shared/native-hr/organization-picker';
 import type { RosterDetail } from './roster-types';
 
 type TranslationFn = ReturnType<typeof useTranslations>;
@@ -108,13 +109,10 @@ export function DraftRosterSection({
     <SectionCard>
       <h2>{t('createDraft')}</h2>
       <div className="cq-grid-3">
-        <label className="cq-form-field">
-          <span>{t('organizationUnitId')}</span>
-          <input
-            value={draftOrganizationUnitId}
-            onChange={(event) => onDraftOrganizationUnitIdChange(event.target.value)}
-          />
-        </label>
+        <OrganizationPicker
+          value={draftOrganizationUnitId}
+          onChange={onDraftOrganizationUnitIdChange}
+        />
 
         <label className="cq-form-field">
           <span>{t('periodStart')}</span>

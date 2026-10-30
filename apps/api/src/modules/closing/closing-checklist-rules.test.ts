@@ -1,6 +1,7 @@
 import { TimeTypeCategory } from '@cueq/database';
 import { describe, expect, it } from 'vitest';
 import {
+  MAX_CHECKLIST_FINDINGS,
   calculateClosingBookingMetrics,
   type ClosingChecklistBooking,
 } from './closing-checklist-rules.js';
@@ -16,6 +17,7 @@ function booking(
   category: TimeTypeCategory = TimeTypeCategory.WORK,
 ): ClosingChecklistBooking {
   return {
+    id: `booking-${assignmentId}-${startTime}`,
     personId: 'person-1',
     assignmentId,
     startTime: new Date(startTime),
@@ -105,5 +107,116 @@ describe('closing checklist appointment metrics', () => {
     );
 
     expect(result.ruleViolations).toBeGreaterThan(0);
+  });
+
+  it('names open and oversized bookings, capped while the count stays exact', () => {
+    const open = {
+      ...booking('assignment-a', '2026-03-03T08:00:00.000Z', '2026-03-03T09:00:00.000Z'),
+      endTime: null,
+    };
+    const oversized = booking(
+      'assignment-a',
+      '2020-01-01T00:00:00.000Z',
+      '2030-01-01T00:00:00.000Z',
+    );
+    const all = [open, oversized];
+
+    const result = calculateClosingBookingMetrics(
+      all,
+      all,
+      [],
+      1,
+      'period-1',
+      periodStart,
+      periodEnd,
+      thresholds,
+      [{ personId: 'person-1', assignmentId: 'assignment-a' }],
+    );
+
+    expect(result.ruleViolations).toBeGreaterThan(MAX_CHECKLIST_FINDINGS);
+    expect(result.findings.RULE_VIOLATIONS).toHaveLength(MAX_CHECKLIST_FINDINGS);
+    expect(result.findings.RULE_VIOLATIONS).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          reason: 'OPEN_BOOKING',
+          bookingId: open.id,
+          personId: 'person-1',
+          assignmentId: 'assignment-a',
+        }),
+        expect.objectContaining({ reason: 'OVERSIZED_BOOKING', bookingId: oversized.id }),
+      ]),
+    );
+  });
+
+  it('reports each policy violation with its code and message', () => {
+    const long = booking('assignment-b', '2026-03-05T04:00:00.000Z', '2026-03-05T22:00:00.000Z');
+
+    const result = calculateClosingBookingMetrics(
+      [long],
+      [long],
+      [],
+      1,
+      'period-1',
+      periodStart,
+      periodEnd,
+      thresholds,
+    );
+
+    expect(result.ruleViolations).toBeGreaterThan(0);
+    expect(result.findings.RULE_VIOLATIONS).toHaveLength(result.ruleViolations);
+    for (const finding of result.findings.RULE_VIOLATIONS) {
+      expect(finding).toMatchObject({ personId: 'person-1' });
+      expect(finding.reason).toMatch(/^[A-Z_]+$/);
+      expect(finding.message.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('lists appointments without coverage and caps findings while counts stay exact', () => {
+    const appointments = Array.from({ length: MAX_CHECKLIST_FINDINGS + 5 }, (_, index) => ({
+      personId: `person-${index}`,
+      assignmentId: `assignment-${index}`,
+    }));
+
+    const result = calculateClosingBookingMetrics(
+      [],
+      [],
+      [{ assignmentId: 'assignment-0' }],
+      appointments.length,
+      'period-1',
+      periodStart,
+      periodEnd,
+      thresholds,
+      appointments,
+    );
+
+    expect(result.missingBookings).toBe(appointments.length - 1);
+    expect(result.findings.MISSING_BOOKINGS).toHaveLength(MAX_CHECKLIST_FINDINGS);
+    expect(result.findings.MISSING_BOOKINGS[0]).toMatchObject({
+      reason: 'NO_BOOKING_OR_ABSENCE',
+      personId: 'person-1',
+      assignmentId: 'assignment-1',
+    });
+  });
+
+  it("counts a person's bookings from other units but shows booking details only for this unit", () => {
+    const otherUnit = {
+      ...booking('assignment-other', '2026-03-03T08:00:00.000Z', '2026-03-03T12:00:00.000Z'),
+      endTime: null,
+    };
+
+    const result = calculateClosingBookingMetrics(
+      [otherUnit],
+      [],
+      [],
+      1,
+      'period-1',
+      periodStart,
+      periodEnd,
+      thresholds,
+      [{ personId: 'person-1', assignmentId: 'assignment-a' }],
+    );
+
+    expect(result.ruleViolations).toBe(1);
+    expect(result.findings.RULE_VIOLATIONS).toEqual([]);
   });
 });

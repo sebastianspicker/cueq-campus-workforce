@@ -7,6 +7,12 @@ import { useReadRequests } from '../../../shared/workspace/use-read-requests';
 import { useApiContext } from '../../../platform/http/api-context';
 import type { RosterOperationContext } from './roster-operations';
 import type { PlanVsActual, RosterDetail } from './roster-types';
+import {
+  addCalendarDays,
+  berlinMonth,
+  berlinToday,
+  monthBounds,
+} from '../../../shared/time/calendar-defaults';
 
 const ROSTER_MANAGERS = new Set(['SHIFT_PLANNER', 'HR', 'ADMIN']);
 type TranslationFn = ReturnType<typeof useTranslations>;
@@ -20,14 +26,18 @@ export function useRosterWorkspace(t: TranslationFn) {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [shiftStart, setShiftStart] = useState('2026-03-11T08:00');
-  const [shiftEnd, setShiftEnd] = useState('2026-03-11T16:00');
+  const [shiftStart, setShiftStart] = useState(() => `${addCalendarDays(berlinToday(), 1)}T08:00`);
+  const [shiftEnd, setShiftEnd] = useState(() => `${addCalendarDays(berlinToday(), 1)}T16:00`);
   const [shiftType, setShiftType] = useState('EARLY');
   const [minStaffing, setMinStaffing] = useState(1);
   const [assignSelection, setAssignSelection] = useState<Record<string, string>>({});
   const [draftOrganizationUnitId, setDraftOrganizationUnitId] = useState('');
-  const [draftPeriodStart, setDraftPeriodStart] = useState('2026-04-01T00:00');
-  const [draftPeriodEnd, setDraftPeriodEnd] = useState('2026-04-30T23:59');
+  const [draftPeriodStart, setDraftPeriodStart] = useState(
+    () => `${monthBounds(berlinMonth(new Date(), 1)).first}T00:00`,
+  );
+  const [draftPeriodEnd, setDraftPeriodEnd] = useState(
+    () => `${monthBounds(berlinMonth(new Date(), 1)).last}T23:59`,
+  );
   const [swapShiftId, setSwapShiftId] = useState('');
   const [swapFromPersonId, setSwapFromPersonId] = useState('');
   const [swapToPersonId, setSwapToPersonId] = useState('');

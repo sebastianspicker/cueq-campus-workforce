@@ -47,7 +47,7 @@ export const TerminalHeartbeatSchema = z.object({
   errorCount: z.number().int().min(0).default(0),
   details: z
     .union([
-      z.record(z.unknown()),
+      z.record(z.string(), z.unknown()),
       z.array(z.unknown()),
       z.string(),
       z.number(),
