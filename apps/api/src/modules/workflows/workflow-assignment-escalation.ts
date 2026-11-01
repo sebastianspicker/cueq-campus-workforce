@@ -1,4 +1,5 @@
 /** Escalates overdue workflows with fresh-state checks, compare-and-swap, and transaction-coupled audit. */
+import { Logger } from '@nestjs/common';
 import type { Prisma, WorkflowInstance, WorkflowPolicy } from '@cueq/database';
 import { Role, WorkflowStatus } from '@cueq/database';
 import { shouldEscalate, transitionWorkflow } from '@cueq/domain';
@@ -6,26 +7,31 @@ import type { PrismaService } from '../../persistence/prisma.service.js';
 import type { AuditHelper } from '../audit/public.js';
 import {
   ensureWorkflowPolicyInTransaction,
+  listActiveWorkflowPolicies,
   WORKFLOW_ROUTING_LOCK_SCOPE,
 } from './workflow-assignment-policy.js';
 import { firstPersonByRoles } from './workflow-assignment-routing.js';
-import { lockPolicyWrites } from '../../platform/transactions/transaction-lock.helper.js';
+import { lockPolicyReadsShared } from '../../platform/transactions/transaction-lock.helper.js';
 import { appendTrail, asRoleArray } from './workflow-persistence-normalization.js';
-import { toIso } from './workflow-time.js';
+import { addHours, toIso } from './workflow-time.js';
 
-type EscalationPrisma = Pick<PrismaService, '$transaction' | 'workflowInstance'>;
+type EscalationPrisma = Pick<PrismaService, '$transaction' | 'workflowInstance' | 'workflowPolicy'>;
 type EscalationAudit = Pick<AuditHelper, 'appendAudit'>;
-type EscalationCandidate = Pick<WorkflowInstance, 'id' | 'dueAt' | 'escalationLevel'>;
+type EscalationCandidate = Pick<
+  WorkflowInstance,
+  'id' | 'type' | 'status' | 'dueAt' | 'escalationLevel'
+>;
+const logger = new Logger('WorkflowEscalation');
 const ESCALATION_SCAN_BATCH_SIZE = 100;
 
-function isFreshPendingCandidate(
+function isFreshEscalationCandidate(
   workflow: WorkflowInstance | null,
   candidate: EscalationCandidate,
   now: Date,
 ): workflow is WorkflowInstance {
   return Boolean(
     workflow &&
-    workflow.status === WorkflowStatus.PENDING &&
+    (workflow.status === WorkflowStatus.PENDING || workflow.status === WorkflowStatus.ESCALATED) &&
     workflow.escalationLevel === candidate.escalationLevel &&
     workflow.dueAt &&
     workflow.dueAt <= now,
@@ -65,13 +71,19 @@ async function resolveEscalationApprover(
     where: { id: workflow.requesterId },
     select: { organizationUnitId: true },
   });
-  const fallbackApprover = await firstPersonByRoles(
-    [escalationTargetRole(policy, workflow.escalationLevel)],
+  const role = escalationTargetRole(policy, workflow.escalationLevel);
+  const inUnit = await firstPersonByRoles(
+    [role],
     requester?.organizationUnitId,
     workflow.requesterId,
     tx,
   );
-  return fallbackApprover ?? workflow.approverId;
+  // Only HR/ADMIN escalation targets may be resolved outside the requester's unit.
+  const global =
+    inUnit || (role !== Role.HR && role !== Role.ADMIN)
+      ? null
+      : await firstPersonByRoles([role], undefined, workflow.requesterId, tx);
+  return inUnit ?? global ?? workflow.approverId;
 }
 
 async function updateEscalatedWorkflow(
@@ -80,12 +92,13 @@ async function updateEscalatedWorkflow(
   now: Date,
   nextStatus: WorkflowStatus,
   nextApproverId: string | null,
+  nextDueAt: Date,
 ): Promise<boolean> {
   const delegationTrail = appendTrail(workflow.delegationTrail, nextApproverId);
   const result = await tx.workflowInstance.updateMany({
     where: {
       id: workflow.id,
-      status: WorkflowStatus.PENDING,
+      status: workflow.status,
       escalationLevel: workflow.escalationLevel,
       approverId: workflow.approverId,
       delegationTrail: { equals: workflow.delegationTrail ?? undefined },
@@ -95,6 +108,7 @@ async function updateEscalatedWorkflow(
       status: nextStatus,
       approverId: nextApproverId,
       escalatedAt: now,
+      dueAt: nextDueAt,
       escalationLevel: workflow.escalationLevel + 1,
       delegationTrail,
     },
@@ -131,17 +145,17 @@ async function appendEscalationAudit(
   );
 }
 
-async function escalatePendingCandidate(
+async function escalateCandidate(
   prisma: EscalationPrisma,
   auditHelper: EscalationAudit,
   candidate: EscalationCandidate,
   now: Date,
 ): Promise<boolean> {
   return prisma.$transaction(async (tx) => {
-    await lockPolicyWrites(tx, WORKFLOW_ROUTING_LOCK_SCOPE);
+    await lockPolicyReadsShared(tx, WORKFLOW_ROUTING_LOCK_SCOPE);
     const workflow = await tx.workflowInstance.findUnique({ where: { id: candidate.id } });
     if (
-      !isFreshPendingCandidate(workflow, candidate, now) ||
+      !isFreshEscalationCandidate(workflow, candidate, now) ||
       !shouldEscalateWorkflow(workflow, now)
     ) {
       return false;
@@ -153,6 +167,13 @@ async function escalatePendingCandidate(
     }
 
     const policy = await ensureWorkflowPolicyInTransaction(tx, workflow.type);
+    // Each level escalates once; ESCALATED items stop after the last configured role.
+    if (
+      workflow.status === WorkflowStatus.ESCALATED &&
+      workflow.escalationLevel >= asRoleArray(policy.escalationRoles).length
+    ) {
+      return false;
+    }
     const nextApproverId = await resolveEscalationApprover(tx, workflow, policy);
     const updated = await updateEscalatedWorkflow(
       tx,
@@ -160,6 +181,7 @@ async function escalatePendingCandidate(
       now,
       transition.nextStatus,
       nextApproverId,
+      addHours(now, policy.escalationDeadlineHours),
     );
     if (!updated) {
       return false;
@@ -176,12 +198,16 @@ export async function escalateOverdueWorkflows(
   now = new Date(),
 ) {
   let escalated = 0;
+  let skipped = 0;
+  const policies = new Map(
+    (await listActiveWorkflowPolicies(prisma)).map((policy) => [policy.type, policy]),
+  );
   let cursor: { dueAt: Date; id: string } | undefined;
 
   while (true) {
     const pending = await prisma.workflowInstance.findMany({
       where: {
-        status: WorkflowStatus.PENDING,
+        status: { in: [WorkflowStatus.PENDING, WorkflowStatus.ESCALATED] },
         dueAt: { not: null, lte: now },
         ...(cursor
           ? {
@@ -193,13 +219,30 @@ export async function escalateOverdueWorkflows(
           : {}),
       },
       orderBy: [{ dueAt: 'asc' }, { id: 'asc' }],
-      select: { id: true, dueAt: true, escalationLevel: true },
+      select: { id: true, type: true, status: true, dueAt: true, escalationLevel: true },
       take: ESCALATION_SCAN_BATCH_SIZE,
     });
 
     for (const candidate of pending) {
-      if (await escalatePendingCandidate(prisma, auditHelper, candidate, now)) {
-        escalated += 1;
+      // ESCALATED items at the last configured role never escalate again; skip without a transaction.
+      const policy = policies.get(candidate.type);
+      if (
+        policy &&
+        candidate.status === WorkflowStatus.ESCALATED &&
+        candidate.escalationLevel >= asRoleArray(policy.escalationRoles).length
+      ) {
+        continue;
+      }
+      try {
+        if (await escalateCandidate(prisma, auditHelper, candidate, now)) {
+          escalated += 1;
+        }
+      } catch (error) {
+        // One failing workflow must not abort the rest of the scan; the next run retries.
+        logger.warn(
+          `Escalation of workflow ${candidate.id} failed (${error instanceof Error ? error.constructor.name : 'unknown'}).`,
+        );
+        skipped += 1;
       }
     }
 
@@ -210,5 +253,5 @@ export async function escalateOverdueWorkflows(
     cursor = { dueAt: last.dueAt, id: last.id };
   }
 
-  return { escalated };
+  return { escalated, skipped };
 }

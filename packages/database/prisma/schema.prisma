@@ -696,6 +696,7 @@ model AuditEntry {
 
   @@index([entityType, entityId])
   @@index([actorId, timestamp])
+  @@index([timestamp, id])
   @@map("audit_entries")
 }
 

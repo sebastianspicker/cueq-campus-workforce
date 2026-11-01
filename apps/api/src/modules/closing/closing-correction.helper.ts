@@ -14,7 +14,7 @@ import {
   WorkflowStatus,
   WorkflowType,
 } from '@cueq/database';
-import { applyCutoffLock } from '@cueq/domain';
+import { applyCutoffLock, roundToTwo } from '@cueq/domain';
 import { ClosingBookingCorrectionSchema } from '@cueq/contracts';
 import { PrismaService } from '../../persistence/prisma.service.js';
 import {
@@ -26,6 +26,7 @@ import type { AuthenticatedIdentity } from '../../platform/auth/auth.types.js';
 import { AuditHelper } from '../audit/public.js';
 import { toCoreClosingStatus } from '../../platform/transactions/closing-lock.helper.js';
 import { HR_LIKE_ROLES, PersonHelper, AssignmentHelper } from '../people/public.js';
+import { actualHoursForInterval, inclusivePeriodEndToExclusive } from '../attendance/public.js';
 import { toClosingActorRole, toPersistenceClosingStatus } from './closing-mapping.js';
 import { bookingOverlapWhere } from '../../persistence/queries/booking-overlap.js';
 import {
@@ -182,7 +183,7 @@ export class ClosingCorrectionHelper {
   ) {
     await lockClosingPeriodWrites(tx, closingPeriodId);
     await lockPersonWrites(tx, [parsed.personId]);
-    const { workflow, timeType, employment } = await this.validateCorrectionRequest(
+    const { period, workflow, timeType, employment } = await this.validateCorrectionRequest(
       tx,
       closingPeriodId,
       parsed,
@@ -206,12 +207,12 @@ export class ClosingCorrectionHelper {
     );
     await this.updateTimeAccountForCorrection(
       tx,
+      period,
       parsed.personId,
       employment.assignment.id,
       startTime,
       endTime,
       timeType.category,
-      durationHours,
     );
     await this.appendCorrectionAudit(
       tx,
@@ -316,12 +317,12 @@ export class ClosingCorrectionHelper {
 
   private async updateTimeAccountForCorrection(
     tx: Prisma.TransactionClient,
+    period: { periodEnd: Date },
     personId: string,
     assignmentId: string,
     from: Date,
     to: Date,
     category: TimeTypeCategory,
-    durationHours: number,
   ) {
     if (category !== TimeTypeCategory.WORK && category !== TimeTypeCategory.DEPLOYMENT) {
       return;
@@ -333,7 +334,7 @@ export class ClosingCorrectionHelper {
         periodStart: { lte: from },
         periodEnd: { gte: to },
       },
-      select: { id: true },
+      select: { id: true, periodStart: true, periodEnd: true, targetHours: true },
       take: 2,
     });
     const account = accounts[0];
@@ -342,9 +343,28 @@ export class ClosingCorrectionHelper {
         'Correction requires one appointment account covering its interval; split or reconcile the accounts first.',
       );
     }
+    // Recalculate from bookings like account preparation does; increments drift at 0.01 h.
+    const calculationEnd =
+      account.periodEnd.getTime() === period.periodEnd.getTime()
+        ? inclusivePeriodEndToExclusive(account.periodEnd)
+        : account.periodEnd;
+    const bookings = await tx.booking.findMany({
+      where: {
+        personId,
+        assignmentId,
+        endTime: { not: null, gt: account.periodStart },
+        startTime: { lt: calculationEnd },
+        timeType: { category: { in: [TimeTypeCategory.WORK, TimeTypeCategory.DEPLOYMENT] } },
+      },
+      select: { startTime: true, endTime: true },
+    });
+    const actualHours = actualHoursForInterval(bookings, account.periodStart, calculationEnd);
     await tx.timeAccount.update({
       where: { id: account.id },
-      data: { actualHours: { increment: durationHours }, balance: { increment: durationHours } },
+      data: {
+        actualHours,
+        balance: roundToTwo(actualHours - account.targetHours.toNumber()),
+      },
     });
   }
 

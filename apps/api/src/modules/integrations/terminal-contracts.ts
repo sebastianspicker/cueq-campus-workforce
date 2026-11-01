@@ -2,13 +2,20 @@
 import { z } from 'zod';
 import { MAX_BOOKING_DURATION_MS } from '@cueq/contracts';
 
+// Accepts UTC offsets and normalizes to a UTC ISO instant.
+const utcInstant = z.iso
+  .datetime({ offset: true })
+  .transform((value) => new Date(value).toISOString());
+const MAX_HEARTBEAT_DETAILS_BYTES = 4096;
+const POSTGRES_INT4_MAX = 2_147_483_647;
+
 export const TerminalRecordSchema = z
   .object({
     personId: z.string().cuid(),
     assignmentId: z.string().cuid().optional(),
     timeTypeCode: z.string().min(1),
-    startTime: z.string().datetime(),
-    endTime: z.string().datetime().optional(),
+    startTime: utcInstant,
+    endTime: utcInstant.optional(),
     note: z.string().max(1000).optional(),
   })
   .refine(
@@ -43,8 +50,8 @@ export const TerminalSyncBatchFileSchema = z.object({
 export const TerminalHeartbeatSchema = z.object({
   terminalId: z.string().min(1),
   observedAt: z.string().datetime(),
-  bufferedRecords: z.number().int().min(0).default(0),
-  errorCount: z.number().int().min(0).default(0),
+  bufferedRecords: z.number().int().min(0).max(POSTGRES_INT4_MAX).default(0),
+  errorCount: z.number().int().min(0).max(POSTGRES_INT4_MAX).default(0),
   details: z
     .union([
       z.record(z.string(), z.unknown()),
@@ -54,7 +61,12 @@ export const TerminalHeartbeatSchema = z.object({
       z.boolean(),
       z.null(),
     ])
-    .optional(),
+    .optional()
+    .refine(
+      (details) =>
+        Buffer.byteLength(JSON.stringify(details ?? null), 'utf8') <= MAX_HEARTBEAT_DETAILS_BYTES,
+      { message: `details must not exceed ${MAX_HEARTBEAT_DETAILS_BYTES} bytes serialized` },
+    ),
 });
 
 export const TerminalImportResultPayloadSchema = z.object({

@@ -20,6 +20,7 @@ import {
   lockEmploymentPopulationWrites,
 } from '../../platform/transactions/transaction-lock.helper.js';
 import { allowManualReviewStart } from './closing-config.js';
+import { LONG_TRANSACTION_OPTIONS } from '../../platform/transactions/transaction-options.js';
 import { toClosingActorRole, toPersistenceClosingStatus } from './closing-mapping.js';
 
 function toCoreClosingPeriod(period: ClosingPeriod) {
@@ -272,7 +273,7 @@ export class ClosingLifecycleHelper {
         tx,
       );
       return approved;
-    });
+    }, LONG_TRANSACTION_OPTIONS);
 
     return toCoreClosingPeriod(updated);
   }

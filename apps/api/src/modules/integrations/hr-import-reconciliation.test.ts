@@ -93,3 +93,69 @@ describe('API HR import reconciliation batching', () => {
     expect(transaction.$executeRaw).not.toHaveBeenCalled();
   });
 });
+
+describe('API HR import identity and unspecified fields', () => {
+  function existingTransaction(people: object[]) {
+    return {
+      person: { findMany: vi.fn().mockResolvedValue(people) },
+      $queryRaw: vi.fn().mockResolvedValue([{ acquired: true }]),
+      $executeRaw: vi.fn().mockResolvedValue(1),
+    } as unknown as Prisma.TransactionClient;
+  }
+  const stored = (externalId: string | null, email: string) => ({
+    id: `id-${email}`,
+    externalId,
+    email,
+    employmentStartDate: null,
+    employmentEndDate: null,
+  });
+
+  it('keeps stored role, unit and model when the columns are absent', async () => {
+    const [row] = rows(1);
+    delete row!.role;
+    delete row!.organizationUnit;
+    delete row!.workTimeModel;
+    const transaction = existingTransaction([stored('person-0', 'person-0@example.test')]);
+
+    // The legacy employment step needs real tables; the writes under test happen before it.
+    await reconcileHrImportRows(transaction, [row!]).catch(() => undefined);
+
+    const calls = vi.mocked(transaction.$executeRaw).mock.calls as unknown as Array<
+      [{ strings: string[]; values: unknown[] }]
+    >;
+    const update = calls.find(([query]) => query.strings.join('').includes('UPDATE "persons"'))![0];
+    expect(update.strings.join('')).toContain(`COALESCE(data.role::"Role", person."role")`);
+    expect(update.values.slice(5, 8)).toEqual([null, null, null]);
+    // No unit/model rows are upserted for an existing person that names none.
+    expect(
+      calls.filter(([query]) => /organization_units|work_time_models/.test(query.strings.join(''))),
+    ).toEqual([]);
+  });
+
+  it('does not reset a named model when the hours columns are absent', async () => {
+    const [row] = rows(1);
+    delete row!.weeklyHours;
+    delete row!.dailyTargetHours;
+    const transaction = existingTransaction([stored('person-0', 'person-0@example.test')]);
+
+    await reconcileHrImportRows(transaction, [row!]).catch(() => undefined);
+
+    const calls = vi.mocked(transaction.$executeRaw).mock.calls as unknown as Array<
+      [{ strings: string[]; values: unknown[] }]
+    >;
+    const modelWrites = calls
+      .map(([query]) => query.strings.join(''))
+      .filter((sql) => sql.includes('work_time_models'));
+    expect(modelWrites).toHaveLength(1);
+    expect(modelWrites[0]).toContain('DO NOTHING');
+  });
+
+  it('rejects an email held by a person with another externalId', async () => {
+    const transaction = existingTransaction([stored('leaver', 'person-0@example.test')]);
+
+    await expect(reconcileHrImportRows(transaction, rows(1))).rejects.toThrow(
+      /belongs to another externalId/,
+    );
+    expect(transaction.$executeRaw).not.toHaveBeenCalled();
+  });
+});

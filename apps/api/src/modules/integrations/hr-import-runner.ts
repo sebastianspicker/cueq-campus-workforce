@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException } from '@nestjs/common';
 import { z } from 'zod';
 import type { PrismaService } from '../../persistence/prisma.service.js';
+import { LONG_TRANSACTION_OPTIONS } from '../../platform/transactions/transaction-options.js';
 import { assertIntegrationToken } from './credentials/integration-token.js';
 import type { AuditHelper } from '../audit/public.js';
 import type { HrMasterProviderPort } from './hr-master-provider.port.js';
@@ -59,7 +60,7 @@ async function importRowsInTransaction(
       },
       tx,
     );
-  });
+  }, LONG_TRANSACTION_OPTIONS);
 }
 
 export async function runHrImport(

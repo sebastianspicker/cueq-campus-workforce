@@ -6,7 +6,6 @@ import { PrismaService } from '../../persistence/prisma.service.js';
 import { AuditHelper } from '../audit/public.js';
 import { WorkflowDelegationCrudHelper } from './workflow-delegation-crud.helper.js';
 import { decideWorkflowTransition } from './workflow-runtime-decision.js';
-import { WorkflowSideEffectsHelper } from './workflow-side-effects.helper.js';
 import type { WorkflowActor, WorkflowDecisionResult } from './workflow-contracts.js';
 
 /**
@@ -20,8 +19,6 @@ export class WorkflowDecisionService {
     @Inject(AuditHelper) private readonly auditHelper: AuditHelper,
     @Inject(WorkflowDelegationCrudHelper)
     private readonly delegationCrud: WorkflowDelegationCrudHelper,
-    @Inject(WorkflowSideEffectsHelper)
-    private readonly sideEffectsHelper: WorkflowSideEffectsHelper,
   ) {}
 
   decide(
@@ -34,7 +31,6 @@ export class WorkflowDecisionService {
         prisma: this.prisma,
         auditHelper: this.auditHelper,
         delegationCrud: this.delegationCrud,
-        sideEffectsHelper: this.sideEffectsHelper,
       },
       actor,
       command,

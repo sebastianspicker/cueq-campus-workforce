@@ -31,6 +31,19 @@ describe('HR import employment date validation', () => {
     });
   });
 
+  it('trims identity cells so padded CSV values match stored people', () => {
+    const [parsed] = parseHrImportCsv(
+      'externalId,firstName,lastName,email\n employee-1 , Test , Person ,test@example.test \n',
+    );
+
+    expect(parsed).toMatchObject({
+      externalId: 'employee-1',
+      firstName: 'Test',
+      lastName: 'Person',
+      email: 'test@example.test',
+    });
+  });
+
   it.each(['2026-02-30', '2026-2-03', '2026-02-03T00:00:00Z'])(
     'rejects invalid or non-date-only start value %s',
     (employmentStartDate) => {
@@ -70,6 +83,34 @@ describe('HR import employment date validation', () => {
       'Supervisor cycle detected for externalId="a".',
       'Supervisor cycle detected for externalId="b".',
       'Supervisor cycle detected for externalId="c".',
+    ]);
+  });
+});
+
+describe('HR import absent columns and shared models', () => {
+  it('leaves absent columns undefined instead of defaulting them', () => {
+    const [parsed] = parseHrImportCsv(
+      'externalId,firstName,lastName,email\nemployee-1,Test,Person,test@example.test',
+    );
+
+    expect(parsed).toMatchObject({
+      role: undefined,
+      organizationUnit: undefined,
+      workTimeModel: undefined,
+      weeklyHours: undefined,
+      dailyTargetHours: undefined,
+    });
+    expect(validateHrImportRows([parsed!]).errors).toEqual([]);
+  });
+
+  it('rejects one work time model carrying different hours within a batch', () => {
+    const result = validateHrImportRows([
+      baseRow,
+      { ...baseRow, externalId: 'employee-2', email: 'two@example.test', weeklyHours: '20' },
+    ]);
+
+    expect(result.errors).toEqual([
+      expect.stringContaining('Work time model "Default" has conflicting hours'),
     ]);
   });
 });

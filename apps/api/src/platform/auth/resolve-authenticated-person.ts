@@ -7,7 +7,11 @@ import type { AuthenticatedIdentity } from './auth.types.js';
 /** Finds the local person for a verified subject and rejects a mismatched persisted email address. */
 export async function resolveAuthenticatedPerson<
   I extends Prisma.PersonInclude | undefined = undefined,
->(prisma: PrismaService, user: AuthenticatedIdentity, options?: { include?: I }) {
+>(
+  prisma: PrismaService,
+  user: Pick<AuthenticatedIdentity, 'subject' | 'email' | 'personId'>,
+  options?: { include?: I },
+) {
   const include = options?.include;
 
   if (user.personId) {

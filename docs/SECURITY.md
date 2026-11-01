@@ -24,16 +24,17 @@ incident response must be provided by the deployment environment.
 
 The API selects one bearer-token provider:
 
-- `mock` accepts named or encoded local tokens and is rejected when
-  `NODE_ENV=production`.
+- `mock` accepts named or encoded local tokens and is rejected unless
+  `NODE_ENV` is `development` or `test`; unset or any other value counts as
+  production.
 - `oidc` verifies issuer, audience, signature, and registered JWT claims against
-  the issuer JWKS. It maps Keycloak-style realm roles.
+  the issuer JWKS. Role claims in the token are ignored.
 - `saml` verifies an HMAC-signed JWT issued by an external SAML bridge. cueq does
   not implement the SAML protocol itself.
 
 OIDC and bridge tokens require `sub` and `email`. After verifying the token, the
 API resolves it to a local person and authorizes requests from the persisted
-role and organization-unit data.
+role and organization-unit data; token role claims are never used.
 
 The browser holds the current token in React memory. It has no login redirect,
 refresh-token flow, server-side session, logout protocol, or application-level

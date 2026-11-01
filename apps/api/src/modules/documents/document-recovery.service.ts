@@ -51,7 +51,7 @@ export class DocumentRecoveryService implements OnModuleInit {
   }
 
   async recoverOne(id: string, objects: Pick<DocumentObjectStorage, 'discardUnreferenced'>) {
-    const objectKey = await this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       // The uploader takes this same row lock before creating a version. It
       // cannot commit after recovery marks the intent FAILED.
       const claimed = await tx.$queryRaw<
@@ -76,9 +76,15 @@ export class DocumentRecoveryService implements OnModuleInit {
           where: { id },
           data: { status: 'FAILED', settledAt: new Date() },
         });
-      return upload.objectKey;
+      // A staged file still missing a week after FAILED will not be written late anymore.
+      const abandoned =
+        upload.status === 'FAILED' &&
+        !!upload.settledAt &&
+        upload.settledAt.getTime() < Date.now() - 7 * 86_400_000;
+      return { objectKey: upload.objectKey, abandoned };
     });
-    if (!objectKey) return;
+    if (!result) return;
+    const { objectKey, abandoned } = result;
     // Files are discarded only after the FAILED state has committed. A failed
     // or ambiguous recovery commit leaves the object intact for another retry.
     try {
@@ -87,7 +93,7 @@ export class DocumentRecoveryService implements OnModuleInit {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
       // A paused writer may not have opened its path yet. Keep the durable
       // intent eligible for another pass rather than finalizing missing bytes.
-      return;
+      if (!abandoned) return;
     }
     await this.prisma.documentUpload.update({ where: { id }, data: { cleanupAt: new Date() } });
   }

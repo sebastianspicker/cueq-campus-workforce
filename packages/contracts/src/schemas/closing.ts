@@ -40,6 +40,14 @@ export const ClosingPeriodMonthQuerySchema = z
   });
 export type ClosingPeriodMonthQuery = z.infer<typeof ClosingPeriodMonthQuerySchema>;
 
+export const CreateClosingPeriodSchema = z
+  .object({
+    month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/),
+    organizationUnitId: IdSchema.optional(),
+  })
+  .strict();
+export type CreateClosingPeriodInput = z.infer<typeof CreateClosingPeriodSchema>;
+
 export const ClosingBookingCorrectionSchema = z
   .object({
     workflowId: IdSchema,

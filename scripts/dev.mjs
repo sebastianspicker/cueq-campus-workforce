@@ -7,7 +7,7 @@ const scriptDirectory = dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = resolve(scriptDirectory, '..');
 const child = spawn(resolve(scriptDirectory, 'pnpm.sh'), ['dev'], {
   cwd: repositoryRoot,
-  env: process.env,
+  env: { ...process.env, NODE_ENV: process.env.NODE_ENV ?? 'development' },
   stdio: 'inherit',
 });
 

@@ -18,7 +18,6 @@ export const BreakRuleSchema = PolicyRuleMetaSchema.extend({
       }),
     )
     .min(1),
-  autoDeduct: z.boolean().default(false),
 });
 export type BreakRule = z.infer<typeof BreakRuleSchema>;
 
@@ -37,5 +36,4 @@ export const DEFAULT_BREAK_RULE: BreakRule = {
     { workedHoursMin: 6, requiredBreakMinutes: 30 },
     { workedHoursMin: 9, requiredBreakMinutes: 45 },
   ],
-  autoDeduct: false,
 };

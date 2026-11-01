@@ -9,6 +9,7 @@ describe('workflow transition state machine through the public domain API', () =
     ['PENDING', 'APPROVE', 'APPROVED'],
     ['PENDING', 'REJECT', 'REJECTED'],
     ['PENDING', 'ESCALATE', 'ESCALATED'],
+    ['ESCALATED', 'ESCALATE', 'ESCALATED'],
     ['ESCALATED', 'APPROVE', 'APPROVED'],
     ['ESCALATED', 'REJECT', 'REJECTED'],
     ['DRAFT', 'CANCEL', 'CANCELLED'],

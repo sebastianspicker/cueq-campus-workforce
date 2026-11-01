@@ -11,11 +11,12 @@ import type { WorkflowAction, WorkflowDecisionCommand } from '@cueq/contracts';
 import type { PrismaService } from '../../persistence/prisma.service.js';
 import type { AuditHelper } from '../audit/public.js';
 import type { WorkflowDelegationCrudHelper } from './workflow-delegation-crud.helper.js';
-import type { WorkflowSideEffectsHelper } from './workflow-side-effects.helper.js';
 import type { lockPersonWrites } from '../../platform/transactions/transaction-lock.helper.js';
 import type { WorkflowActor, WorkflowDecisionResult } from './workflow-contracts.js';
 import { appendTrail } from './workflow-persistence-normalization.js';
-import { isRoleAllowedForType } from './workflow-routing-policy.js';
+import { getActiveWorkflowPolicy } from './workflow-assignment-policy.js';
+import { DEFAULT_POLICIES, isRoleAllowedForType } from './workflow-routing-policy.js';
+import { validatePostCloseSelfApproval } from './workflow-effect-validation.js';
 import { toIso } from './workflow-time.js';
 import { availableWorkflowActions, normalizeWorkflowAction } from './workflow-action-visibility.js';
 
@@ -26,7 +27,6 @@ export interface WorkflowDecisionDependencies {
   prisma: PrismaService;
   auditHelper: Pick<AuditHelper, 'appendAudit'>;
   delegationCrud: Pick<WorkflowDelegationCrudHelper, 'validateInlineDelegation'>;
-  sideEffectsHelper: Pick<WorkflowSideEffectsHelper, 'validatePostCloseSelfApproval'>;
   lockPersonWrites: typeof lockPersonWrites;
 }
 
@@ -51,7 +51,7 @@ export async function transitionWorkflowDecision(
     throw new NotFoundException('Workflow not found.');
   }
 
-  await validateDecision(dependencies, actor, workflow, action, command.reason);
+  validateDecision(actor, workflow, action);
   const transition = createDecisionTransition(actor, workflow, action, command.reason);
   const routing = await resolveDecisionRouting(dependencies, actor, workflow, action, command, tx);
   const updated = await persistDecision(db, workflow, action, command, transition, routing);
@@ -60,13 +60,11 @@ export async function transitionWorkflowDecision(
   return { action, previous: workflow, updated };
 }
 
-async function validateDecision(
-  dependencies: WorkflowDecisionDependencies,
+function validateDecision(
   actor: WorkflowActor,
   workflow: WorkflowInstance,
   action: WorkflowAction,
-  reason?: string,
-): Promise<void> {
+): void {
   if (!availableWorkflowActions(workflow, actor).includes(action)) {
     throw new ForbiddenException('Action is not allowed for this actor and workflow state.');
   }
@@ -74,7 +72,7 @@ async function validateDecision(
     throw new ForbiddenException('Role cannot decide this workflow type.');
   }
   if (action === 'APPROVE') {
-    await dependencies.sideEffectsHelper.validatePostCloseSelfApproval(actor.id, workflow, reason);
+    validatePostCloseSelfApproval(actor.id, workflow);
   }
 }
 
@@ -120,6 +118,7 @@ async function resolveDecisionRouting(
   if (!command.delegateToId) {
     throw new BadRequestException('delegateToId is required for DELEGATE.');
   }
+  await assertDelegationDepthAvailable(tx ?? dependencies.prisma, workflow);
   if (tx) {
     await dependencies.lockPersonWrites(tx, [command.delegateToId]);
   }
@@ -138,6 +137,20 @@ async function resolveDecisionRouting(
     nextApproverId: command.delegateToId,
     delegationTrail: appendTrail(workflow.delegationTrail, command.delegateToId),
   };
+}
+
+/** Applies the same policy depth limit to manual delegation as to rule-based chains. */
+async function assertDelegationDepthAvailable(
+  db: WorkflowDecisionDatabase,
+  workflow: WorkflowInstance,
+): Promise<void> {
+  const policy = await getActiveWorkflowPolicy(db, workflow.type);
+  const maxDepth = policy?.maxDelegationDepth ?? DEFAULT_POLICIES[workflow.type].maxDelegationDepth;
+  if (appendTrail(workflow.delegationTrail).length >= maxDepth) {
+    throw new BadRequestException(
+      `Delegation depth limit of ${maxDepth} reached for workflow type ${workflow.type}.`,
+    );
+  }
 }
 
 async function persistDecision(

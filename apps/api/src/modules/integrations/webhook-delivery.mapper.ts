@@ -11,6 +11,9 @@ export type DeliveryRecord = {
   deliveredAt: Date | null;
 };
 
+// PostgreSQL text columns reject NUL.
+const stripNul = (value: string | null) => value?.replaceAll('\u0000', '') ?? null;
+
 export function webhookDeliveryRecord(
   eventId: string,
   endpointId: string,
@@ -25,7 +28,7 @@ export function webhookDeliveryRecord(
       attempt,
       status: 'SUCCESS',
       httpStatus,
-      responseBody,
+      responseBody: stripNul(responseBody),
       error: null,
       deliveredAt: new Date(),
     };
@@ -54,7 +57,7 @@ export function failedWebhookDeliveryRecord(
     attempt,
     status: 'FAILED',
     httpStatus,
-    responseBody,
+    responseBody: stripNul(responseBody),
     error: truncateForStorage(error, WEBHOOK_ERROR_MAX_CHARS),
     deliveredAt: null,
   };

@@ -23,30 +23,36 @@ export interface WebhookHttpRequest {
   maxRedirects?: number;
 }
 
-function responseBody(
-  response: IncomingMessage,
-  request: ClientRequest,
-  maxBytes: number,
-): Promise<string> {
+function responseBody(response: IncomingMessage, maxBytes: number): Promise<string> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
     let receivedBytes = 0;
+    let settled = false;
+    const settle = (finish: () => void) => {
+      if (settled) return;
+      settled = true;
+      finish();
+    };
 
     response.on('data', (value: Buffer | string) => {
+      if (settled) return;
       const chunk = Buffer.isBuffer(value) ? value : Buffer.from(value);
+      const remaining = maxBytes - receivedBytes;
       receivedBytes += chunk.length;
       if (receivedBytes > maxBytes) {
-        const error = new Error('Webhook response exceeded the byte limit.');
-        response.destroy(error);
-        request.destroy(error);
-        reject(error);
+        // The status is already known; keep the truncated body instead of failing a delivered webhook.
+        chunks.push(chunk.subarray(0, remaining));
+        settle(() => resolve(Buffer.concat(chunks).toString('utf8')));
+        response.destroy();
         return;
       }
       chunks.push(chunk);
     });
-    response.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
-    response.on('aborted', () => reject(new Error('Webhook response was interrupted.')));
-    response.on('error', reject);
+    response.on('end', () => settle(() => resolve(Buffer.concat(chunks).toString('utf8'))));
+    response.on('aborted', () =>
+      settle(() => reject(new Error('Webhook response was interrupted.'))),
+    );
+    response.on('error', (error) => settle(() => reject(error)));
   });
 }
 
@@ -112,7 +118,7 @@ export async function postWebhook(input: WebhookHttpRequest): Promise<WebhookHtt
       try {
         return {
           status: response.statusCode ?? 0,
-          body: await responseBody(response, request, input.maxResponseBytes),
+          body: await responseBody(response, input.maxResponseBytes),
         };
       } finally {
         cancelTimeout();

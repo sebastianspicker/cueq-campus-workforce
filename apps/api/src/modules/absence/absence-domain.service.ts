@@ -1,6 +1,12 @@
 import { cursorPage, cursorWhere } from '../../persistence/queries/cursor-page.js';
 /** Owns absence, leave-adjustment, approval, and balance operations. */
-import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { AbsenceStatus, type AbsenceType } from '@cueq/database';
 import { countAssignmentWorkingDays } from '@cueq/domain';
 import {
@@ -26,12 +32,11 @@ import {
 } from '../people/public.js';
 import { ClosingLockHelper } from '../../platform/transactions/closing-lock.helper.js';
 import { LeaveBalanceHelper } from './leave-balance.helper.js';
-import { toAbsenceResponse } from './absence-response.mapper.js';
+import { canSeeAbsenceNote, toAbsenceResponse } from './absence-response.mapper.js';
 import { writeAbsenceCreation } from './absence-create.writer.js';
 import { writeAbsenceCancellation } from './absence-cancel.writer.js';
 import { writeLeaveAdjustment } from './absence-leave-adjustment.writer.js';
 import {
-  mayReadAbsenceDetails,
   absenceBelongsToOrganization,
   teamCalendarDateRange,
   teamCalendarStatuses,
@@ -124,7 +129,7 @@ export class AbsenceDomainService {
         this.closingLockHelper.rethrowWithDurableClosingAudit(error, closingAttempt),
       );
 
-    return toAbsenceResponse(absence);
+    return toAbsenceResponse(absence, canSeeAbsenceNote(user, actor.id, absence));
   }
 
   async listMyAbsences(user: AuthenticatedIdentity, query: unknown = {}): Promise<unknown> {
@@ -156,7 +161,7 @@ export class AbsenceDomainService {
       parsed.limit,
       'startDate',
       (row) => row.startDate,
-      toAbsenceResponse,
+      (row) => toAbsenceResponse(row, true),
     );
   }
 
@@ -165,7 +170,7 @@ export class AbsenceDomainService {
     const absence = await this.prisma.absence.findUnique({ where: { id: absenceId } });
     if (!absence) throw new NotFoundException('Absence not found.');
     assertCanActForPerson(user, actor.id, absence.personId);
-    return toAbsenceResponse(absence);
+    return toAbsenceResponse(absence, canSeeAbsenceNote(user, actor.id, absence));
   }
 
   async cancelAbsence(user: AuthenticatedIdentity, absenceId: string): Promise<unknown> {
@@ -223,7 +228,7 @@ export class AbsenceDomainService {
       .catch((error: unknown) =>
         this.closingLockHelper.rethrowWithDurableClosingAudit(error, closingAttempt),
       );
-    return toAbsenceResponse(cancelled);
+    return toAbsenceResponse(cancelled, canSeeAbsenceNote(user, actor.id, cancelled));
   }
 
   async leaveBalance(
@@ -239,6 +244,9 @@ export class AbsenceDomainService {
     assertHrLikeRole(user);
     const actor = await this.personHelper.personForUser(user);
     const parsed = CreateLeaveAdjustmentSchema.parse(payload);
+    if (parsed.personId === actor.id) {
+      throw new ForbiddenException('Leave balances cannot be adjusted for yourself.');
+    }
 
     const assignment = await this.assignmentHelper.selectAssignment(
       parsed.personId,
@@ -338,7 +346,6 @@ export class AbsenceDomainService {
       new Date(endDate.getTime() + 1),
       query.assignmentId,
     );
-    const canReadAbsenceDetails = mayReadAbsenceDetails(user.role);
     const absences = await this.prisma.absence.findMany({
       where: {
         assignment: {
@@ -362,6 +369,6 @@ export class AbsenceDomainService {
 
     return absences
       .filter((absence) => absenceBelongsToOrganization(absence, resolved.organizationUnitId))
-      .map((absence) => toTeamCalendarEntry(absence, canReadAbsenceDetails));
+      .map((absence) => toTeamCalendarEntry(absence, user.role));
   }
 }

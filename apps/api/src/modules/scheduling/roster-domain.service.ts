@@ -14,6 +14,7 @@ import { AssignmentHelper, PersonHelper, HR_LIKE_ROLES } from '../people/public.
 import { AuditHelper } from '../audit/public.js';
 import { ClosingLockHelper } from '../../platform/transactions/closing-lock.helper.js';
 import { RosterShiftHelper } from './roster-shift.helper.js';
+import { assertPersonAvailableForShift } from './roster-availability.helper.js';
 import { RosterAssignmentHelper } from './roster-assignment.helper.js';
 import { RosterQueryHelper } from './roster-query.helper.js';
 import {
@@ -237,94 +238,98 @@ export class RosterDomainService {
     await this.closingLockHelper.assertClosingPeriodUnlockedForRange(closingAttempt);
 
     const updated = await this.prisma
-      .$transaction(async (tx) => {
-        await this.closingLockHelper.assertClosingPeriodUnlockedForRangeInTransaction(
-          {
-            organizationUnitId: roster.organizationUnitId,
-            from: roster.periodStart,
-            to: roster.periodEnd,
-          },
-          tx,
-        );
-        await lockRosterWrites(tx, [rosterId]);
-        const current = await tx.roster.findUnique({
-          where: { id: rosterId },
-          include: {
-            shifts: {
-              include: { assignments: { select: { personId: true, assignmentId: true } } },
+      .$transaction(
+        async (tx) => {
+          await this.closingLockHelper.assertClosingPeriodUnlockedForRangeInTransaction(
+            {
+              organizationUnitId: roster.organizationUnitId,
+              from: roster.periodStart,
+              to: roster.periodEnd,
             },
-          },
-        });
+            tx,
+          );
+          await lockRosterWrites(tx, [rosterId]);
+          const current = await tx.roster.findUnique({
+            where: { id: rosterId },
+            include: {
+              shifts: {
+                include: { assignments: { select: { personId: true, assignmentId: true } } },
+              },
+            },
+          });
 
-        if (!current) {
-          throw new NotFoundException('Roster not found.');
-        }
+          if (!current) {
+            throw new NotFoundException('Roster not found.');
+          }
 
-        this.shiftHelper.assertCanWriteRoster(
-          user,
-          actor.organizationUnitId,
-          current.organizationUnitId,
-        );
-        this.shiftHelper.assertRosterIsDraft(current.status);
+          this.shiftHelper.assertCanWriteRoster(
+            user,
+            actor.organizationUnitId,
+            current.organizationUnitId,
+          );
+          this.shiftHelper.assertRosterIsDraft(current.status);
 
-        const assignedPersonIds = current.shifts.flatMap((shift) =>
-          shift.assignments.map((assignment) => assignment.personId),
-        );
-        await lockPersonWrites(tx, assignedPersonIds);
-        for (const shift of current.shifts) {
-          for (const assignment of shift.assignments) {
-            const resolved = await this.employmentAssignmentHelper.resolveInterval(
-              assignment.personId,
-              shift.startTime,
-              shift.endTime,
-              assignment.assignmentId,
-              tx,
-            );
-            if (resolved.organizationUnitId !== current.organizationUnitId) {
-              throw new BadRequestException(
-                'Cannot publish roster with an appointment outside the roster unit.',
+          const assignedPersonIds = current.shifts.flatMap((shift) =>
+            shift.assignments.map((assignment) => assignment.personId),
+          );
+          await lockPersonWrites(tx, assignedPersonIds);
+          for (const shift of current.shifts) {
+            for (const assignment of shift.assignments) {
+              const resolved = await this.employmentAssignmentHelper.resolveInterval(
+                assignment.personId,
+                shift.startTime,
+                shift.endTime,
+                assignment.assignmentId,
+                tx,
               );
+              if (resolved.organizationUnitId !== current.organizationUnitId) {
+                throw new BadRequestException(
+                  'Cannot publish roster with an appointment outside the roster unit.',
+                );
+              }
+              await assertPersonAvailableForShift(tx, assignment.personId, shift);
             }
           }
-        }
 
-        const currentShortfalls = current.shifts
-          .map((shift) => {
-            const assigned = shift.assignments.length;
-            const shortfall = Math.max(shift.minStaffing - assigned, 0);
-            return { shiftId: shift.id, required: shift.minStaffing, assigned, shortfall };
-          })
-          .filter((entry) => entry.shortfall > 0);
+          const currentShortfalls = current.shifts
+            .map((shift) => {
+              const assigned = shift.assignments.length;
+              const shortfall = Math.max(shift.minStaffing - assigned, 0);
+              return { shiftId: shift.id, required: shift.minStaffing, assigned, shortfall };
+            })
+            .filter((entry) => entry.shortfall > 0);
 
-        if (currentShortfalls.length > 0) {
-          throw new BadRequestException({
-            message: 'Cannot publish roster due to staffing shortfalls.',
-            shortfalls: currentShortfalls,
+          if (currentShortfalls.length > 0) {
+            throw new BadRequestException({
+              message: 'Cannot publish roster due to staffing shortfalls.',
+              shortfalls: currentShortfalls,
+            });
+          }
+
+          const published = await tx.roster.update({
+            where: { id: current.id },
+            data: { status: 'PUBLISHED', publishedAt: new Date() },
           });
-        }
 
-        const published = await tx.roster.update({
-          where: { id: current.id },
-          data: { status: 'PUBLISHED', publishedAt: new Date() },
-        });
-
-        await this.auditHelper.appendAudit(
-          {
-            actorId: actor.id,
-            action: 'ROSTER_PUBLISHED',
-            entityType: 'Roster',
-            entityId: published.id,
-            before: { status: current.status },
-            after: {
-              status: published.status,
-              publishedAt: published.publishedAt?.toISOString() ?? null,
+          await this.auditHelper.appendAudit(
+            {
+              actorId: actor.id,
+              action: 'ROSTER_PUBLISHED',
+              entityType: 'Roster',
+              entityId: published.id,
+              before: { status: current.status },
+              after: {
+                status: published.status,
+                publishedAt: published.publishedAt?.toISOString() ?? null,
+              },
             },
-          },
-          tx,
-        );
+            tx,
+          );
 
-        return published;
-      })
+          return published;
+        },
+        { timeout: 60_000, maxWait: 10_000 },
+      ) // one employment resolution per assignment can exceed 5 s
       .catch((error: unknown) =>
         this.closingLockHelper.rethrowWithDurableClosingAudit(error, closingAttempt),
       );

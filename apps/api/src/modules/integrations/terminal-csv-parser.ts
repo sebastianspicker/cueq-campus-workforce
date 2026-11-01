@@ -51,6 +51,9 @@ export function parseHoneywellCsv(csv: string): HoneywellCsvParseResult {
   }
 
   const records = parseHoneywellRows(rows);
+  if (rows.length > 0 && records.length === 0) {
+    throw new BadRequestException('Honeywell CSV contains no valid data rows.');
+  }
   return {
     records,
     rawRows: rows.length,

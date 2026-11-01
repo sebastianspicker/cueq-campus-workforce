@@ -48,7 +48,16 @@ describe('private document expiry reminders', () => {
       },
     ]);
     expect(f.prisma.personnelDocument.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ take: 100, select: { id: true } }),
+      expect.objectContaining({
+        take: 100,
+        select: { id: true },
+        where: {
+          expiresAt: {
+            gte: new Date('2026-08-31T00:00:00Z'),
+            lte: new Date('2026-09-14T00:00:00Z'),
+          },
+        },
+      }),
     );
   });
   it('requires configured storage and rechecks current expiry and content before enqueueing', async () => {

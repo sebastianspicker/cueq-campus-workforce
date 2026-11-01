@@ -39,7 +39,8 @@ function buildCustomPreviewResponse(
     ...(report.suppression === undefined ? {} : { suppression: report.suppression }),
     rows: [
       {
-        group: parsed.groupBy === 'ORGANIZATION_UNIT' ? report.organizationUnitId : 'ALL',
+        // Unit-scoped reports cover one unit even without grouping; only a global report is 'ALL'.
+        group: report.organizationUnitId ?? 'ALL',
         metrics: selectMetrics(report.totals, parsed.metrics),
       },
     ],

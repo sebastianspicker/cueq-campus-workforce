@@ -4,6 +4,7 @@ import { toBookingDto } from './booking-response.mapper.js';
 /** Builds the authenticated caller's booking-focused dashboard data. */
 import { Inject, Injectable } from '@nestjs/common';
 import { AssignmentContextSchema } from '@cueq/contracts';
+import { AbsenceStatus } from '@cueq/database';
 import { PrismaService } from '../../persistence/prisma.service.js';
 import type { AuthenticatedIdentity } from '../../platform/auth/auth.types.js';
 import { AssignmentHelper, PersonHelper } from '../people/public.js';
@@ -50,6 +51,10 @@ export class DashboardBookingsService {
       assignmentId,
       startTime: { gte: dayStart, lt: dayEnd },
     };
+    // dayEnd is Berlin midnight, still on today's Berlin date in UTC; absences are stored at UTC midnight.
+    const berlinDate = new Date(
+      Date.UTC(dayEnd.getUTCFullYear(), dayEnd.getUTCMonth(), dayEnd.getUTCDate()),
+    );
     const [
       latestTimeAccount,
       todayBookingsCount,
@@ -57,6 +62,7 @@ export class DashboardBookingsService {
       clockInType,
       todayBookings,
       worked,
+      todayAbsences,
     ] = await this.prisma.$transaction(
       [
         this.prisma.timeAccount.findFirst({
@@ -76,14 +82,26 @@ export class DashboardBookingsService {
           include: { timeType: true },
         }),
         this.prisma.$queryRaw<Array<{ milliseconds: number }>>`
-            SELECT COALESCE(SUM(GREATEST(0, EXTRACT(EPOCH FROM (COALESCE("endTime", ${now}) - "startTime")) * 1000)), 0)::double precision AS milliseconds
-            FROM "bookings" WHERE "personId" = ${person.id} AND "assignmentId" = ${assignmentId} AND "startTime" >= ${dayStart} AND "startTime" < ${dayEnd}
+            SELECT COALESCE(SUM(GREATEST(0, EXTRACT(EPOCH FROM (LEAST(COALESCE(b."endTime", ${now}), ${dayEnd}) - GREATEST(b."startTime", ${dayStart}))) * 1000)), 0)::double precision AS milliseconds
+            FROM "bookings" b JOIN "time_types" tt ON tt."id" = b."timeTypeId"
+            WHERE b."personId" = ${person.id} AND b."assignmentId" = ${assignmentId} AND tt."category" IN ('WORK', 'DEPLOYMENT')
+              AND b."startTime" < ${dayEnd} AND COALESCE(b."endTime", ${now}) > ${dayStart}
           `,
+        this.prisma.absence.findMany({
+          where: {
+            personId: person.id,
+            assignmentId,
+            status: AbsenceStatus.APPROVED,
+            startDate: { lte: berlinDate },
+            endDate: { gte: berlinDate },
+          },
+          select: { startDate: true, endDate: true },
+        }),
       ],
       { isolationLevel: 'RepeatableRead' },
     );
 
-    const dailyTarget = targetHoursForBerlinDay(resolved.term, now);
+    const dailyTarget = targetHoursForBerlinDay(resolved.term, now, todayAbsences);
     const hasFirstBooking = firstBooking !== null;
 
     return {

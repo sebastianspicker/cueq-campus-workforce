@@ -1,6 +1,7 @@
 /** Public barrel for the I/O-free cueq workforce domain engine. */
 export * from './types.js';
 export * from './constants.js';
+export { roundToTwo } from './numerical/precision.js';
 export * from './calendar/date-parsing.js';
 export { requiredBreakMinutes } from './time-engine/break-rules.js';
 export * from './generated/schema-contracts.js';

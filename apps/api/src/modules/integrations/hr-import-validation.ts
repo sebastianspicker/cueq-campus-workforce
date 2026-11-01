@@ -3,13 +3,22 @@ import { Role } from '@cueq/database';
 import { parseCsvRecords } from './csv/parse-csv.js';
 import type { HrMasterRecord } from './hr-master-provider.port.js';
 
+export const DEFAULT_ORGANIZATION_UNIT = 'Unassigned';
+export const DEFAULT_WORK_TIME_MODEL = 'Default';
 const DEFAULT_WEEKLY_HOURS = 39.83;
 const DEFAULT_DAILY_TARGET_HOURS = 7.97;
 export const MAX_HR_IMPORT_RECORDS = 10_000;
 
-export type ParsedHrImportRow = HrMasterRecord & {
-  supervisorExternalId?: string;
-};
+type OptionalHrFields =
+  | 'role'
+  | 'organizationUnit'
+  | 'workTimeModel'
+  | 'weeklyHours'
+  | 'dailyTargetHours';
+
+/** A field that is undefined was absent from the CSV header and must not overwrite stored data. */
+export type ParsedHrImportRow = Omit<HrMasterRecord, OptionalHrFields> &
+  Partial<Pick<HrMasterRecord, OptionalHrFields>>;
 
 export type ValidatedHrImportRow = ParsedHrImportRow & {
   parsedRole: Role;
@@ -22,7 +31,7 @@ export type ValidatedHrImportRow = ParsedHrImportRow & {
 };
 
 function csvField(row: Record<string, string>, key: string, fallback: string): string {
-  return row[key] ?? fallback;
+  return (row[key] ?? fallback).trim();
 }
 
 function parsedRowFromCsv(row: Record<string, string>): ParsedHrImportRow {
@@ -34,11 +43,11 @@ function parsedRowFromCsv(row: Record<string, string>): ParsedHrImportRow {
     firstName: csvField(row, 'firstName', ''),
     lastName: csvField(row, 'lastName', ''),
     email: csvField(row, 'email', ''),
-    role: csvField(row, 'role', 'EMPLOYEE'),
-    organizationUnit: csvField(row, 'organizationUnit', 'Unassigned'),
-    workTimeModel: csvField(row, 'workTimeModel', 'Default'),
-    weeklyHours: csvField(row, 'weeklyHours', String(DEFAULT_WEEKLY_HOURS)),
-    dailyTargetHours: csvField(row, 'dailyTargetHours', String(DEFAULT_DAILY_TARGET_HOURS)),
+    role: row['role'],
+    organizationUnit: row['organizationUnit'],
+    workTimeModel: row['workTimeModel'],
+    weeklyHours: row['weeklyHours'],
+    dailyTargetHours: row['dailyTargetHours'],
     supervisorExternalId: supervisorExternalId || undefined,
     employmentStartDate: employmentStartDate || undefined,
     employmentEndDate: employmentEndDate || undefined,
@@ -49,7 +58,7 @@ function hasRequiredIdentity(row: ParsedHrImportRow): boolean {
   return Boolean(row.externalId && row.email && row.firstName && row.lastName);
 }
 
-function parseNonnegativeHours(value: string, fallback: number): number | null {
+function parseNonnegativeHours(value: string | undefined, fallback: number): number | null {
   const parsed = Number(value || fallback);
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
 }
@@ -94,7 +103,7 @@ function validateRow(
     return `Invalid dailyTargetHours for externalId="${row.externalId}".`;
   }
 
-  const parsedRole = toRole(row.role);
+  const parsedRole = toRole(row.role ?? 'EMPLOYEE');
   if (parsedRole === null) return `Unsupported HR role: ${row.role}`;
 
   const parsedEmploymentStartDate = parseEmploymentDate(row.employmentStartDate);
@@ -120,11 +129,35 @@ function validateRow(
     parsedRole,
     parsedWeeklyHours,
     parsedDailyTargetHours,
-    organizationUnitId: `ou_${row.organizationUnit.toLowerCase().replace(/[^a-z0-9]+/giu, '_')}`,
-    workTimeModelId: `wtm_${row.workTimeModel.toLowerCase().replace(/[^a-z0-9]+/giu, '_')}`,
+    organizationUnitId: `ou_${(row.organizationUnit ?? DEFAULT_ORGANIZATION_UNIT).toLowerCase().replace(/[^a-z0-9]+/giu, '_')}`,
+    workTimeModelId: `wtm_${(row.workTimeModel ?? DEFAULT_WORK_TIME_MODEL).toLowerCase().replace(/[^a-z0-9]+/giu, '_')}`,
     parsedEmploymentStartDate,
     parsedEmploymentEndDate,
   };
+}
+
+/** A shared model id must carry one set of hours within a batch. */
+function workTimeModelConflicts(rows: ValidatedHrImportRow[]): string[] {
+  const errors: string[] = [];
+  const modelRows = new Map<string, ValidatedHrImportRow>();
+  for (const row of rows) {
+    if (
+      row.workTimeModel === undefined ||
+      (row.weeklyHours === undefined && row.dailyTargetHours === undefined)
+    )
+      continue;
+    const first = modelRows.get(row.workTimeModelId);
+    if (!first) modelRows.set(row.workTimeModelId, row);
+    else if (
+      first.parsedWeeklyHours !== row.parsedWeeklyHours ||
+      first.parsedDailyTargetHours !== row.parsedDailyTargetHours
+    ) {
+      errors.push(
+        `Work time model "${row.workTimeModel}" has conflicting hours for externalId="${first.externalId}" and externalId="${row.externalId}".`,
+      );
+    }
+  }
+  return errors;
 }
 
 export function parseHrImportCsv(csv: string): ParsedHrImportRow[] {
@@ -152,6 +185,8 @@ export function validateHrImportRows(rows: ParsedHrImportRow[]): {
     if (typeof validated === 'string') errors.push(validated);
     else validatedRows.push(validated);
   }
+
+  errors.push(...workTimeModelConflicts(validatedRows));
 
   const byExternalId = new Map(validatedRows.map((row) => [row.externalId, row]));
   const leadsToCycle = new Map<string, boolean>();

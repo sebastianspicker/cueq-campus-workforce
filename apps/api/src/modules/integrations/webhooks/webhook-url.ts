@@ -2,6 +2,7 @@
 import { BadRequestException } from '@nestjs/common';
 import { lookup } from 'node:dns/promises';
 import { BlockList, isIP } from 'node:net';
+import { isDevelopmentOrTest } from '../../../platform/runtime-environment.js';
 
 const ENABLED_VALUES = new Set(['1', 'true', 'yes', 'on']);
 const DISABLED_VALUES = new Set(['0', 'false', 'no', 'off']);
@@ -49,10 +50,6 @@ export interface ResolvedWebhookTarget {
   family: 4 | 6;
 }
 
-function isProductionRuntime(env: NodeJS.ProcessEnv): boolean {
-  return (env.NODE_ENV ?? '').trim().toLowerCase() === 'production';
-}
-
 function allowPrivateRegistrationTargets(env: NodeJS.ProcessEnv): boolean {
   const configured = (env.WEBHOOK_ALLOW_PRIVATE_TARGETS ?? '').trim().toLowerCase();
   if (ENABLED_VALUES.has(configured)) {
@@ -62,7 +59,7 @@ function allowPrivateRegistrationTargets(env: NodeJS.ProcessEnv): boolean {
     return false;
   }
 
-  return !isProductionRuntime(env);
+  return isDevelopmentOrTest(env);
 }
 
 function normalizeHostname(hostname: string): string {
@@ -136,7 +133,7 @@ export function assertWebhookTargetUrl(url: string, env: NodeJS.ProcessEnv = pro
   }
   if (
     parsed.protocol === 'http:' &&
-    isProductionRuntime(env) &&
+    !isDevelopmentOrTest(env) &&
     !allowPrivateRegistrationTargets(env)
   ) {
     throw new BadRequestException(

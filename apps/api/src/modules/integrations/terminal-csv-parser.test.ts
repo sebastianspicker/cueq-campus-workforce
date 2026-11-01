@@ -31,4 +31,19 @@ describe('Honeywell terminal CSV protocol', () => {
       expect.objectContaining({ assignmentId: 'c123456789012345678901235' }),
     ]);
   });
+
+  it('normalizes UTC offsets to UTC instants', () => {
+    const csv = [
+      'personId,timeTypeCode,startTime',
+      'c123456789012345678901234,WORK,2026-08-04T08:00:00+01:00',
+    ].join('\n');
+
+    expect(parseHoneywellCsv(csv).records[0]?.startTime).toBe('2026-08-04T07:00:00.000Z');
+  });
+
+  it('rejects a file whose data rows are all invalid', () => {
+    const csv = ['personId,timeTypeCode,startTime', 'not-a-cuid,WORK,nonsense'].join('\n');
+
+    expect(() => parseHoneywellCsv(csv)).toThrow(BadRequestException);
+  });
 });

@@ -6,6 +6,7 @@ import type { AuthenticatedIdentity } from '../../platform/auth/auth.types.js';
 import { AssignmentHelper, PersonHelper } from '../people/public.js';
 import { AuditHelper } from '../audit/public.js';
 import { ClosingLockHelper } from '../../platform/transactions/closing-lock.helper.js';
+import { assertPersonAvailableForShift } from './roster-availability.helper.js';
 import { assertRosterClosingGuardIsCurrent, RosterShiftHelper } from './roster-shift.helper.js';
 import {
   lockPersonWrites,
@@ -143,6 +144,8 @@ export class RosterAssignmentHelper {
           currentShift.id,
           tx,
         );
+
+        await assertPersonAvailableForShift(tx, parsed.personId, currentShift);
 
         const exists = await tx.shiftAssignment.findFirst({
           where: { shiftId: currentShift.id, personId: parsed.personId },

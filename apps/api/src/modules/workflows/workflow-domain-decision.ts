@@ -1,5 +1,5 @@
 import type { PrismaService } from '../../persistence/prisma.service.js';
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import type { AuthenticatedIdentity } from '../../platform/auth/auth.types.js';
 import type { ClosingBlockedAttemptInput } from '../../platform/transactions/closing-lock.helper.js';
 import type { ClosingLockHelper } from '../../platform/transactions/closing-lock.helper.js';
@@ -8,6 +8,7 @@ import type { WorkflowSideEffectsHelper } from './workflow-side-effects.helper.j
 import type { WorkflowDecisionService } from './workflow-decision.service.js';
 import type { WorkflowRuntimeService } from './workflow-runtime.service.js';
 import { WorkflowDecisionCommandSchema } from '@cueq/contracts';
+import { availableWorkflowActions } from './workflow-action-visibility.js';
 import { prepareDecisionGuards } from './workflow-decision-guards.helper.js';
 
 type WorkflowDecisionDependencies = {
@@ -59,16 +60,25 @@ export async function decideWorkflowSubmission(
 
   try {
     const result = await prisma.$transaction(async (tx) => {
-      const scopedWorkflow = await tx.workflowInstance.findUnique({
-        where: { id: workflowId },
-        select: { assignmentId: true },
-      });
+      const scopedWorkflow = await tx.workflowInstance.findUnique({ where: { id: workflowId } });
       if (
         scopedWorkflow &&
         requestedAssignmentId !== undefined &&
         requestedAssignmentId !== scopedWorkflow.assignmentId
       ) {
         throw new BadRequestException('Workflow appointment does not match the request.');
+      }
+      const decisionActor = {
+        id: actor.id,
+        role: user.role,
+        organizationUnitId: actorAssignment.organizationUnitId,
+      };
+      // Authorize before closing-period guards so non-approvers get 403, not a 409 plus audit row.
+      if (
+        scopedWorkflow &&
+        !availableWorkflowActions(scopedWorkflow, decisionActor).includes(requestedAction)
+      ) {
+        throw new ForbiddenException('Action is not allowed for this actor and workflow state.');
       }
       blockedAttempt = await prepareDecisionGuards({
         tx,
@@ -84,11 +94,7 @@ export async function decideWorkflowSubmission(
       if (requestedAction === 'APPROVE') {
         await sideEffectsHelper.validatePreApproval(workflowId, tx);
       }
-      const decision = await workflowDecisionService.decide(
-        { id: actor.id, role: user.role, organizationUnitId: actorAssignment.organizationUnitId },
-        parsed,
-        tx,
-      );
+      const decision = await workflowDecisionService.decide(decisionActor, parsed, tx);
       await sideEffectsHelper.applyDecisionSideEffects(actor.id, decision, tx, parsed.reason);
       return decision.updated;
     });

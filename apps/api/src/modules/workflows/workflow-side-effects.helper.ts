@@ -9,7 +9,6 @@ import {
   type AttendanceWorkflowEffectsPort,
   type SchedulingWorkflowEffectsPort,
 } from '../../application/ports/workflow-side-effects.port.js';
-import { validatePostCloseSelfApproval } from './workflow-effect-validation.js';
 import type { WorkflowDecisionResult } from './workflow-contracts.js';
 
 @Injectable()
@@ -38,14 +37,6 @@ export class WorkflowSideEffectsHelper {
     if (!workflow) throw new NotFoundException('Workflow not found.');
     await this.schedulingEffects.validateWorkflowPreApproval({ decision: workflow, tx });
     await this.attendanceEffects.validateWorkflowPreApproval({ decision: workflow, tx });
-  }
-
-  async validatePostCloseSelfApproval(
-    actorId: string,
-    workflow: { requesterId: string; type: string },
-    _reason?: string,
-  ) {
-    validatePostCloseSelfApproval(actorId, workflow);
   }
 
   async applyDecisionSideEffects(

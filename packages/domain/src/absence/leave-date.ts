@@ -3,7 +3,7 @@ import { parseDateOrDateTime } from '../calendar/date-parsing.js';
 import type { LeaveUsageEntry } from './leave-ledger.types.js';
 
 /** Parse a policy month-day value while accepting both `MM-DD` and year-prefixed forms. */
-export function parseMonthDay(value: string): { month: number; day: number } {
+function parseMonthDay(value: string): { month: number; day: number } {
   const parts = value.split('-').map(Number);
   const month = parts.at(-2);
   const day = parts.at(-1);

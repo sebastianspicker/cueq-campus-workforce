@@ -15,6 +15,8 @@ export interface NativeField {
     | 'json';
   options?: readonly string[];
   nullable?: boolean;
+  /** Send a `date` input as UTC midnight; the API treats employment boundaries as UTC dates. */
+  utcInstant?: boolean;
   optional?: boolean;
   defaultValue?: string;
 }
@@ -25,6 +27,8 @@ function fieldValue(field: NativeField, value: string): unknown {
       return Number(value);
     case 'checkbox':
       return value === 'true';
+    case 'date':
+      return field.utcInstant ? `${value}T00:00:00.000Z` : value;
     case 'datetime-local': {
       const instant = localDateTimeInputToIsoInstant(value);
       if (!instant) throw new Error('Invalid datetime');

@@ -114,6 +114,25 @@ export async function lockPolicyWrites(
   });
 }
 
+/**
+ * Blocking shared lock on a policy scope: many readers run concurrently, writers wait for them.
+ * Lock order: policy/routing scope first, then person locks. Never take it after a person lock.
+ */
+export async function lockPolicyReadsShared(
+  tx: TransactionLockClient,
+  policyKey: string,
+): Promise<void> {
+  await tx.$queryRaw`SELECT pg_advisory_xact_lock_shared(hashtextextended(${`cueq:policy-write:${policyKey}`}, 0))::text AS locked`; // void result is not deserializable
+}
+
+/** Blocking exclusive lock on the same key as {@link lockPolicyReadsShared}; waits instead of failing. */
+export async function lockPolicyWritesExclusive(
+  tx: TransactionLockClient,
+  policyKey: string,
+): Promise<void> {
+  await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`cueq:policy-write:${policyKey}`}, 0))::text AS locked`; // void result is not deserializable
+}
+
 /** Serializes external record identities before acquiring individual person locks. */
 export async function lockHrSourceWrites(
   tx: TransactionLockClient,

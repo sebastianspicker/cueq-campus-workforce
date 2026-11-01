@@ -5,10 +5,13 @@ import type { WorkflowType } from '@cueq/database';
 import type { WorkflowPolicyUpsert } from '@cueq/contracts';
 import type { PrismaService } from '../../persistence/prisma.service.js';
 import type { AuditHelper } from '../audit/public.js';
-import { lockPolicyWrites } from '../../platform/transactions/transaction-lock.helper.js';
+import { lockPolicyWritesExclusive } from '../../platform/transactions/transaction-lock.helper.js';
 import { DEFAULT_POLICIES, isRoleAllowedForType } from './workflow-routing-policy.js';
 
-/** Shared advisory-lock scope that serializes workflow routing and policy changes. */
+/**
+ * Advisory-lock scope for workflow routing. Routing/escalation take it shared, policy and delegation
+ * writers exclusive (blocking). Lock order: this scope before any person lock.
+ */
 export const WORKFLOW_ROUTING_LOCK_SCOPE = 'workflow-routing';
 
 type PolicyStore = Pick<PrismaService, 'workflowPolicy'>;
@@ -26,6 +29,16 @@ export async function ensureWorkflowPolicyInTransaction(
     return existing;
   }
 
+  // Per-type blocking lock serializes default creation without needing the routing write lock.
+  await lockPolicyWritesExclusive(tx, `${WORKFLOW_ROUTING_LOCK_SCOPE}-default:${type}`);
+  const created = await tx.workflowPolicy.findFirst({
+    where: { type, activeTo: null },
+    orderBy: { activeFrom: 'desc' },
+  });
+  if (created) {
+    return created;
+  }
+
   const defaultPolicy = DEFAULT_POLICIES[type];
   return tx.workflowPolicy.create({
     data: {
@@ -35,22 +48,6 @@ export async function ensureWorkflowPolicyInTransaction(
       maxDelegationDepth: defaultPolicy.maxDelegationDepth,
       activeFrom: new Date(),
     },
-  });
-}
-
-export async function ensureWorkflowPolicy(
-  prisma: Pick<PrismaService, '$transaction'>,
-  type: WorkflowType,
-  tx?: Prisma.TransactionClient,
-): Promise<WorkflowPolicy> {
-  if (tx) {
-    await lockPolicyWrites(tx, WORKFLOW_ROUTING_LOCK_SCOPE);
-    return ensureWorkflowPolicyInTransaction(tx, type);
-  }
-
-  return prisma.$transaction(async (transaction) => {
-    await lockPolicyWrites(transaction, WORKFLOW_ROUTING_LOCK_SCOPE);
-    return ensureWorkflowPolicyInTransaction(transaction, type);
   });
 }
 
@@ -94,7 +91,7 @@ export async function upsertWorkflowPolicy(
   const now = new Date();
 
   return prisma.$transaction(async (tx) => {
-    await lockPolicyWrites(tx, WORKFLOW_ROUTING_LOCK_SCOPE);
+    await lockPolicyWritesExclusive(tx, WORKFLOW_ROUTING_LOCK_SCOPE);
 
     const previous = await tx.workflowPolicy.findMany({
       where: { type, activeTo: null },

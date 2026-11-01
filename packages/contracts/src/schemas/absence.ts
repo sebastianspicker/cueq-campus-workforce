@@ -31,6 +31,10 @@ export const CreateAbsenceSchema = z
   .refine((data) => data.startDate <= data.endDate, {
     message: 'End date must be on or after start date',
     path: ['endDate'],
+  })
+  .refine((data) => Date.parse(data.endDate) - Date.parse(data.startDate) <= 365 * 86_400_000, {
+    message: 'An absence may span at most 366 days; record longer periods as several absences',
+    path: ['endDate'],
   });
 export type CreateAbsence = z.infer<typeof CreateAbsenceSchema>;
 

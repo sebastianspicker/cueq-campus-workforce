@@ -39,14 +39,20 @@ describe('HTTP boundary policy', () => {
     await expect(
       isOriginAllowed(buildCorsOptions({ NODE_ENV: 'production' }), undefined),
     ).resolves.toBe(true);
+    await expect(isOriginAllowed(buildCorsOptions({}), 'http://localhost:3000')).resolves.toBe(
+      false,
+    );
     expect(() => buildCorsOptions({ CORS_ORIGINS: '*', CORS_ALLOW_CREDENTIALS: 'true' })).toThrow(
       'CORS_ORIGINS=* cannot be combined',
     );
   });
 
   it('keeps the development bind host local and validates route/body inputs before handlers', () => {
-    expect(resolveDevelopmentListenHost({})).toBe('127.0.0.1');
-    expect(resolveDevelopmentListenHost({ CUEQ_DEV_HOST: '0.0.0.0' })).toBe('0.0.0.0');
+    expect(resolveDevelopmentListenHost({ NODE_ENV: 'development' })).toBe('127.0.0.1');
+    expect(resolveDevelopmentListenHost({ NODE_ENV: 'test', CUEQ_DEV_HOST: '0.0.0.0' })).toBe(
+      '0.0.0.0',
+    );
+    expect(resolveDevelopmentListenHost({})).toBeUndefined();
     expect(resolveDevelopmentListenHost({ NODE_ENV: 'production' })).toBeUndefined();
 
     const cuid = 'c123456789012345678901234';

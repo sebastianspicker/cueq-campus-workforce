@@ -19,8 +19,10 @@ export class WorkflowEscalationService {
   async runHourlyEscalation() {
     try {
       const result = await this.workflowRuntimeService.escalateOverdueWorkflows(new Date());
-      if (result.escalated > 0) {
-        this.logger.log(`Escalated ${result.escalated} overdue workflow(s).`);
+      if (result.escalated > 0 || result.skipped > 0) {
+        this.logger.log(
+          `Escalated ${result.escalated} overdue workflow(s), skipped ${result.skipped} on conflicts.`,
+        );
       }
     } catch (error) {
       this.logger.error(

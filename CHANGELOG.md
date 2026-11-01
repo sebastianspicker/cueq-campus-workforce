@@ -20,6 +20,9 @@ a published release.
 
 ### Changed
 
+- Migration `20261101120000_closing_period_global_unique` fails when two global
+  closing periods share a `periodStart`; see the pre-check in
+  `docs/OPERATIONS.md`.
 - Reorganized the former `shared`, `core`, `common`, and `phase2` code into
   contracts, policy, domain, database, platform, and API feature modules.
 - Roster staffing uses `ShiftAssignment`. A migration backfills assignments and

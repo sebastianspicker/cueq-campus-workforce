@@ -25,8 +25,6 @@
     "typecheck": "node ./scripts/verify-typescript-toolchain.mjs && turbo run typecheck",
     "test": "turbo run test",
     "test:coverage": "turbo run test:coverage",
-    "backfill:leave-adjustments": "node ./scripts/backfill-leave-adjustments.mjs",
-    "backfill:workflow-fields": "node ./scripts/backfill-workflow-fields.mjs",
     "migrate:webhook-envelopes": "bash ./scripts/migrate-webhook-secrets.sh",
     "docs:links": "node ./scripts/check-doc-links.mjs",
     "knip": "knip --cache",

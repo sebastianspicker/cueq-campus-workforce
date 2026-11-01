@@ -22,6 +22,7 @@ import { Roles } from '../../platform/auth/decorators/roles.decorator.js';
 import { ParseCuidPipe } from '../../platform/http/validation/parse-cuid.pipe.js';
 import { ZodValidationPipe } from '../../platform/http/validation/zod-validation.pipe.js';
 import { ClosingDomainService } from './closing-domain.service.js';
+import { ClosingPeriodCreateService } from './closing-period-create.js';
 import type { Response } from 'express';
 import { ClosingExportResponseDto } from './closing.dto.js';
 
@@ -32,7 +33,25 @@ import { ClosingExportResponseDto } from './closing.dto.js';
 export class ClosingController {
   constructor(
     @Inject(ClosingDomainService) private readonly closingService: ClosingDomainService,
+    @Inject(ClosingPeriodCreateService) private readonly periodCreate: ClosingPeriodCreateService,
   ) {}
+
+  @Post()
+  @Roles(Role.HR, Role.ADMIN)
+  @ApiOperation({ summary: 'Create an open closing period for a month (global or per unit)' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['month'],
+      properties: {
+        month: { type: 'string', example: '2026-07' },
+        organizationUnitId: { type: 'string' },
+      },
+    },
+  })
+  create(@CurrentUser() user: AuthenticatedIdentity, @Body() payload: unknown) {
+    return this.periodCreate.create(user, payload);
+  }
 
   @Get()
   @Roles(Role.TEAM_LEAD, Role.HR, Role.ADMIN)

@@ -100,6 +100,7 @@ describe('appointment time-account lifecycle', () => {
         ]),
       },
       booking: { findMany: vi.fn(async () => []) },
+      absence: { findMany: vi.fn(async () => []) },
       timeAccount: { findMany: vi.fn(async () => []), update: vi.fn(), create },
     };
     const fixture = serviceWith(tx);
@@ -153,11 +154,14 @@ describe('appointment time-account lifecycle', () => {
       booking: {
         findMany: vi.fn(async () => [
           {
+            personId: account.personId,
+            assignmentId: account.assignmentId,
             startTime: new Date('2026-03-02T08:00:00.000Z'),
             endTime: new Date('2026-03-02T13:00:00.000Z'),
           },
         ]),
       },
+      absence: { findMany: vi.fn(async () => []) },
       timeAccount: { findMany: vi.fn(async () => [account]), update, create: vi.fn() },
     };
     const fixture = serviceWith(tx);
@@ -174,6 +178,73 @@ describe('appointment time-account lifecycle', () => {
       expect.objectContaining({ action: 'TIME_ACCOUNTS_PREPARED' }),
       tx,
     );
+  });
+
+  it('loads bookings and absences once for many appointments and credits approved absences', async () => {
+    const appointments = Array.from({ length: 3 }, (_, index) => ({
+      id: `assignment-${index}`,
+      personId: `person-${index}`,
+      employmentStartDate: null,
+      employmentEndDate: null,
+      terms: [term],
+    }));
+    const create = vi.fn(async () => account);
+    const tx = {
+      $queryRaw: vi.fn(async () => [{ acquired: true }]),
+      closingPeriod: { findUnique: vi.fn(async () => period) },
+      employmentAssignment: { findMany: vi.fn(async () => appointments) },
+      booking: {
+        findMany: vi.fn(async () => [
+          {
+            personId: 'person-1',
+            assignmentId: 'assignment-1',
+            startTime: new Date('2026-03-03T08:00:00.000Z'),
+            endTime: new Date('2026-03-03T16:00:00.000Z'),
+          },
+        ]),
+      },
+      absence: {
+        findMany: vi.fn(async () => [
+          {
+            personId: 'person-1',
+            assignmentId: 'assignment-1',
+            startDate: new Date('2026-03-02T00:00:00.000Z'),
+            endDate: new Date('2026-03-02T00:00:00.000Z'),
+          },
+        ]),
+      },
+      timeAccount: { findMany: vi.fn(async () => []), update: vi.fn(), create },
+    };
+    const fixture = serviceWith(tx);
+
+    await expect(fixture.service.prepareClosingPeriod('actor', period.id)).resolves.toMatchObject({
+      created: 3,
+    });
+    expect(tx.booking.findMany).toHaveBeenCalledTimes(1);
+    expect(tx.absence.findMany).toHaveBeenCalledTimes(1);
+    expect(tx.booking.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          assignmentId: { in: ['assignment-0', 'assignment-1', 'assignment-2'] },
+        }),
+      }),
+    );
+    // One vacation day plus one fully worked day balances; the others owe both days.
+    expect(create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        assignmentId: 'assignment-1',
+        targetHours: 8,
+        actualHours: 8,
+        balance: 0,
+      }),
+    });
+    expect(create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        assignmentId: 'assignment-0',
+        targetHours: 16,
+        balance: -16,
+      }),
+    });
   });
 
   it('rejects a closing interval with a gap in effective appointment terms', async () => {
@@ -219,6 +290,7 @@ describe('appointment time-account lifecycle', () => {
         ]),
       },
       booking: { findMany: vi.fn(async () => []) },
+      absence: { findMany: vi.fn(async () => []) },
       timeAccount: { findMany: vi.fn(async () => accounts) },
     });
     const segment = {

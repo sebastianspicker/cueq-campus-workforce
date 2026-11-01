@@ -22,6 +22,7 @@ export function calculateEntitlementDays(input: LeaveLedgerInput, rule: LeaveRul
 
 /** Clamp prior-year carry-over to non-negative input and the active policy maximum. */
 export function cappedCarryOverDays(input: LeaveLedgerInput, rule: LeaveRule): number {
+  if (!rule.carryOver.enabled) return 0;
   return roundToTwo(
     Math.min(Math.max(input.priorYearCarryOverDays ?? 0, 0), rule.carryOver.maxDays),
   );

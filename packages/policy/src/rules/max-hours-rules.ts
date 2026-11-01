@@ -12,7 +12,6 @@ export const MaxHoursRuleSchema = PolicyRuleMetaSchema.extend({
   maxDailyHours: z.number().positive(),
   maxDailyHoursExtended: z.number().positive(),
   maxWeeklyHours: z.number().positive(),
-  referenceWeeks: z.number().int().positive(),
 });
 export type MaxHoursRule = z.infer<typeof MaxHoursRuleSchema>;
 
@@ -29,5 +28,4 @@ export const DEFAULT_MAX_HOURS_RULE: MaxHoursRule = {
   maxDailyHours: 8,
   maxDailyHoursExtended: 10,
   maxWeeklyHours: 48,
-  referenceWeeks: 24,
 };

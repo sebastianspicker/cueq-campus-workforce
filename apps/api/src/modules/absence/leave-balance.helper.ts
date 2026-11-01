@@ -139,14 +139,22 @@ function leaveUsage(
       const termBounds = termDateBounds(term);
       const from = maxDate(bounds.from, dateOnly(absence.startDate), termBounds.from);
       const to = minDate(bounds.to, dateOnly(absence.endDate), termBounds.to);
-      if (from > to) return [];
-      const days = countAssignmentWorkingDays({
-        startDate: from,
-        endDate: to,
-        workingDays: term.workingDays,
-        holidayDates: term.holidayCalendar.holidayDates,
+      // Split at the carry-over deadline so only days up to it consume carry-over.
+      const deadline = `${bounds.from.slice(0, 4)}-${leaveRule(term).carryOver.forfeitureDeadline.slice(-5)}`;
+      const afterDeadline = dateOnly(new Date(Date.parse(deadline) + 86_400_000));
+      return [
+        { from, to: minDate(to, deadline) },
+        { from: maxDate(from, afterDeadline), to },
+      ].flatMap((range) => {
+        if (range.from > range.to) return [];
+        const days = countAssignmentWorkingDays({
+          startDate: range.from,
+          endDate: range.to,
+          workingDays: term.workingDays,
+          holidayDates: term.holidayCalendar.holidayDates,
+        });
+        return days > 0 ? [{ date: range.from, days }] : [];
       });
-      return days > 0 ? [{ date: from, days }] : [];
     }),
   );
 }

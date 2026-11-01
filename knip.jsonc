@@ -7,7 +7,6 @@
         "scripts/backup-restore-verify.mjs!",
         "scripts/generate-domain-schema-types.mjs",
         "scripts/generate-db-schema-doc.mjs",
-        "scripts/hr-import.mjs!",
         "scripts/validate-schemas.mjs",
         "scripts/**/*.sh",
         "scripts/shims/*",

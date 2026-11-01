@@ -1,5 +1,8 @@
+import { assertDisposableDatabase } from './disposable-database.mjs';
+
 /** Removes dependent baseline seed data in foreign-key-safe order; this is destructive for the connected database. */
 export async function resetBaseline(prisma) {
+  assertDisposableDatabase(process.env.DATABASE_URL);
   await prisma.webhookDispatchJobItem.deleteMany();
   await prisma.webhookDispatchJob.deleteMany();
   await prisma.webhookDelivery.deleteMany();

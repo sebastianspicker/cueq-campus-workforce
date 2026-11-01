@@ -1,8 +1,10 @@
+import { isDevelopmentOrTest } from '../runtime-environment.js';
+
 /** Resolves the API bind host without changing production deployment defaults. */
 export function resolveDevelopmentListenHost(
   environment: NodeJS.ProcessEnv = process.env,
 ): string | undefined {
-  if (environment.NODE_ENV === 'production') {
+  if (!isDevelopmentOrTest(environment)) {
     return undefined;
   }
 

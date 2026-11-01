@@ -1,8 +1,8 @@
 import type { NativeField } from '../../../shared/native-hr/native-payload';
 
 export const termFields: NativeField[] = [
-  { key: 'effectiveFrom', type: 'datetime-local' },
-  { key: 'effectiveTo', type: 'datetime-local', nullable: true },
+  { key: 'effectiveFrom', type: 'date', utcInstant: true },
+  { key: 'effectiveTo', type: 'date', utcInstant: true, nullable: true },
   { key: 'organizationUnitId' },
   { key: 'supervisorId', nullable: true },
   { key: 'workTimeModelId', nullable: true },
@@ -18,8 +18,8 @@ export const assignmentFields: NativeField[] = [
   { key: 'label' },
   { key: 'sourceSystem' },
   { key: 'externalAppointmentId', nullable: true },
-  { key: 'employmentStartDate', type: 'datetime-local', nullable: true },
-  { key: 'employmentEndDate', type: 'datetime-local', nullable: true },
+  { key: 'employmentStartDate', type: 'date', utcInstant: true, nullable: true },
+  { key: 'employmentEndDate', type: 'date', utcInstant: true, nullable: true },
   ...termFields.map((field) => ({ ...field, key: `term.${field.key}` })),
 ];
 export const calendarFields: NativeField[] = [

@@ -1,10 +1,12 @@
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import type { Prisma } from '@cueq/database';
 import type { PrismaService } from '../../persistence/prisma.service.js';
 import { assertIntegrationToken } from './credentials/integration-token.js';
 import type { AuditHelper } from '../audit/public.js';
 import { lockTerminalWrites } from '../../platform/transactions/transaction-lock.helper.js';
 import { TerminalHeartbeatSchema, type TerminalHeartbeatInput } from './terminal-contracts.js';
+
+const MAX_HEARTBEAT_FUTURE_MS = 5 * 60_000;
 
 type TerminalHeartbeatDependencies = {
   prisma: Pick<PrismaService, '$transaction'>;
@@ -20,6 +22,9 @@ export async function recordTerminalHeartbeat(
   assertIntegrationToken(token, 'TERMINAL_GATEWAY_TOKEN', 'dev-terminal-token');
   const parsed = TerminalHeartbeatSchema.parse(payload) as TerminalHeartbeatInput;
   const observedAt = new Date(parsed.observedAt);
+  if (observedAt.getTime() > Date.now() + MAX_HEARTBEAT_FUTURE_MS) {
+    throw new BadRequestException('Heartbeat observedAt must not be more than 5 minutes ahead.');
+  }
   const heartbeat = await dependencies.prisma.$transaction(async (tx) => {
     await lockTerminalWrites(tx, parsed.terminalId);
     const existingDevice = await tx.terminalDevice.findUnique({

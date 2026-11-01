@@ -1,5 +1,5 @@
 /** Transaction-scoped terminal batch ingestion workflow. */
-import { ConflictException } from '@nestjs/common';
+import { ConflictException, NotFoundException } from '@nestjs/common';
 import { BookingSource, type Prisma } from '@cueq/database';
 import type { AuthenticatedIdentity } from '../../platform/auth/auth.types.js';
 import type { PrismaService } from '../../persistence/prisma.service.js';
@@ -9,6 +9,7 @@ import type {
   ClosingLockHelper,
 } from '../../platform/transactions/closing-lock.helper.js';
 import { closingBlockedAttemptFromError } from '../../platform/transactions/closing-lock.helper.js';
+import { LONG_TRANSACTION_OPTIONS } from '../../platform/transactions/transaction-options.js';
 import {
   lockPersonWrites,
   lockTerminalIngestion,
@@ -33,6 +34,9 @@ export type TerminalBatchImportDependencies = {
   closingLockHelper: ClosingLockHelper;
   assignmentHelper: AssignmentHelper;
 };
+
+// Absence end dates are inclusive at UTC midnight, so the exclusive end is one day later.
+const DAY_MS = 86_400_000;
 
 type ClosingAttemptState = { current?: ClosingBlockedAttemptInput };
 type BatchOutcomes = {
@@ -226,21 +230,13 @@ async function assertClosingPeriods(
   }
 }
 
-async function touchTerminalDevice(tx: Prisma.TransactionClient, terminalId: string) {
-  const importObservedAt = new Date();
+// Only heartbeats prove the device is alive, so an import never sets lastSeenAt.
+async function findTerminalDevice(tx: Prisma.TransactionClient, terminalId: string) {
   const existingDevice = await tx.terminalDevice.findUnique({ where: { terminalId } });
-  if (existingDevice) {
-    return existingDevice.lastSeenAt && existingDevice.lastSeenAt > importObservedAt
-      ? existingDevice
-      : tx.terminalDevice.update({
-          where: { id: existingDevice.id },
-          data: { lastSeenAt: importObservedAt },
-        });
+  if (existingDevice && !existingDevice.isActive) {
+    throw new NotFoundException('Active terminal device registration not found.');
   }
-
-  return tx.terminalDevice.create({
-    data: { terminalId, name: terminalId, lastSeenAt: importObservedAt },
-  });
+  return existingDevice ?? tx.terminalDevice.create({ data: { terminalId, name: terminalId } });
 }
 
 async function ingestTerminalRecords(
@@ -294,7 +290,7 @@ async function ingestTerminalRecords(
           personId: { in: personIds },
           status: 'APPROVED',
           startDate: { lte: latestEnd },
-          endDate: { gte: earliestStart },
+          endDate: { gt: new Date(earliestStart.getTime() - DAY_MS) },
         },
         select: { personId: true, startDate: true, endDate: true },
       }),
@@ -340,7 +336,7 @@ async function ingestTerminalRecords(
       ?.some(
         (absence) =>
           absence.startDate <= (lookup.endTime ?? lookup.startTime) &&
-          absence.endDate >= lookup.startTime,
+          absence.endDate.getTime() + DAY_MS > lookup.startTime.getTime(),
       );
     if (absenceConflict) {
       conflictFlags.push({
@@ -497,7 +493,7 @@ export function importTerminalBatch(
         dependencies.assignmentHelper,
       );
 
-      const terminalDevice = await touchTerminalDevice(tx, parsed.terminalId);
+      const terminalDevice = await findTerminalDevice(tx, parsed.terminalId);
       const outcomes = await ingestTerminalRecords(tx, recheckedRecords, duplicateRecordsInPayload);
       return createBatchReceipt(
         tx,
@@ -510,7 +506,7 @@ export function importTerminalBatch(
         fileMetrics,
         outcomes,
       );
-    })
+    }, LONG_TRANSACTION_OPTIONS)
     .catch((error: unknown) => {
       if (!closingAttempt.current) throw error;
       return dependencies.closingLockHelper.rethrowWithDurableClosingAudit(

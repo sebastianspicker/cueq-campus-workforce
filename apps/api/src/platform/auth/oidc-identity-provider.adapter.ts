@@ -1,10 +1,8 @@
 /** OIDC trust adapter that verifies issuer tokens and maps only supported identity claims. */
 import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
-import { Role } from '@cueq/database';
 import type { IdentityProviderPort } from './identity-provider.port.js';
-import type { AuthenticatedIdentity } from './auth.types.js';
-import { selectHighestRoleClaim } from './role-mapping.js';
+import type { VerifiedIdentity } from './auth.types.js';
 
 /** Converts verified OIDC access tokens into the application identity contract. */
 @Injectable()
@@ -17,7 +15,7 @@ export class OidcIdentityProviderAdapter implements IdentityProviderPort {
     ? createRemoteJWKSet(new URL(`${this.issuer.replace(/\/$/, '')}/protocol/openid-connect/certs`))
     : null;
 
-  async verifyAccessToken(token: string): Promise<AuthenticatedIdentity> {
+  async verifyAccessToken(token: string): Promise<VerifiedIdentity> {
     if (!this.issuer || !this.audience || !this.jwks) {
       throw new UnauthorizedException('OIDC is not configured.');
     }
@@ -36,7 +34,7 @@ export class OidcIdentityProviderAdapter implements IdentityProviderPort {
     }
   }
 
-  private mapClaims(claims: Record<string, unknown>): AuthenticatedIdentity {
+  private mapClaims(claims: Record<string, unknown>): VerifiedIdentity {
     const email = claims.email ? String(claims.email) : '';
     const subject = claims.sub ? String(claims.sub) : '';
 
@@ -44,15 +42,6 @@ export class OidcIdentityProviderAdapter implements IdentityProviderPort {
       throw new UnauthorizedException('Missing required identity claims.');
     }
 
-    const realmAccess = claims.realm_access as { roles?: string[] } | undefined;
-    const role = selectHighestRoleClaim(realmAccess?.roles ?? []) ?? Role.EMPLOYEE;
-
-    return {
-      subject,
-      email,
-      role,
-      organizationUnitId: claims.organizationUnitId ? String(claims.organizationUnitId) : undefined,
-      claims,
-    };
+    return { subject, email, claims };
   }
 }

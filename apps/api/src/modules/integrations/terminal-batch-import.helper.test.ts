@@ -1,4 +1,4 @@
-import { ConflictException } from '@nestjs/common';
+import { ConflictException, NotFoundException } from '@nestjs/common';
 import { BookingSource, Role } from '@cueq/database';
 import { describe, expect, it, vi } from 'vitest';
 import { importTerminalBatch } from './terminal-batch-import.helper.js';
@@ -18,7 +18,7 @@ const record = {
   endTime: '2026-08-04T09:00:00.000Z',
 };
 
-function setup(existingBookings: object[] = []) {
+function setup(existingBookings: object[] = [], approvedAbsences: object[] = []) {
   const resolved = {
     assignment: { id: ids.assignment, personId: ids.person },
     organizationUnitId: ids.organizationUnit,
@@ -36,7 +36,7 @@ function setup(existingBookings: object[] = []) {
     timeType: {
       findMany: vi.fn().mockResolvedValue([{ id: ids.timeType, code: 'WORK' }]),
     },
-    absence: { findMany: vi.fn().mockResolvedValue([]) },
+    absence: { findMany: vi.fn().mockResolvedValue(approvedAbsences) },
     booking: {
       findMany: vi.fn().mockResolvedValue(existingBookings),
       createMany: vi.fn().mockResolvedValue({ count: 1 }),
@@ -135,5 +135,57 @@ describe('terminal batch appointment scope', () => {
       context.closingLockHelper.assertClosingPeriodsUnlockedForRangesInTransaction,
     ).not.toHaveBeenCalled();
     expect(context.tx.booking.createMany).not.toHaveBeenCalled();
+  });
+});
+
+describe('terminal batch absence and device handling', () => {
+  it('flags a punch on the inclusive last day of an approved absence', async () => {
+    const context = setup(
+      [],
+      [
+        {
+          personId: ids.person,
+          startDate: new Date('2026-08-04T00:00:00.000Z'),
+          endDate: new Date('2026-08-04T00:00:00.000Z'),
+        },
+      ],
+    );
+
+    await expect(
+      importTerminalBatch(context.dependencies, context.user, ids.actor, {
+        terminalId: 'terminal-1',
+        records: [{ ...record, startTime: '2026-08-04T06:00:00.000Z', endTime: undefined }],
+      }),
+    ).resolves.toMatchObject({
+      created: 0,
+      conflictFlags: [{ personId: ids.person, type: 'ABSENCE_CONFLICT' }],
+    });
+    expect(context.tx.absence.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          endDate: { gt: new Date('2026-08-03T06:00:00.000Z') },
+        }),
+      }),
+    );
+  });
+
+  it('imports without touching lastSeenAt and rejects an inactive device', async () => {
+    const context = setup();
+    await importTerminalBatch(context.dependencies, context.user, ids.actor, {
+      terminalId: 'terminal-1',
+      records: [record],
+    });
+    expect(context.tx.terminalDevice.create).toHaveBeenCalledWith({
+      data: { terminalId: 'terminal-1', name: 'terminal-1' },
+    });
+
+    const inactive = setup();
+    inactive.tx.terminalDevice.findUnique.mockResolvedValue({ id: 'device-1', isActive: false });
+    await expect(
+      importTerminalBatch(inactive.dependencies, inactive.user, ids.actor, {
+        terminalId: 'terminal-1',
+        records: [record],
+      }),
+    ).rejects.toBeInstanceOf(NotFoundException);
   });
 });

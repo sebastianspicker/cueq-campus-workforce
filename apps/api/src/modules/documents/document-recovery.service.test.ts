@@ -12,6 +12,7 @@ function fixture(versionExists = false) {
         status: 'PENDING',
         objectKey: 'object.enc',
         cleanupAt: null,
+        settledAt: null as Date | null,
       })),
       update: vi.fn(async () => {
         events.push('state');
@@ -80,6 +81,23 @@ describe('durable document upload recovery', () => {
     // A late writer creates the path after that pass; the same intent is retried.
     await f.service.recoverOne('upload', f.objects);
     expect(f.objects.discardUnreferenced).toHaveBeenCalledTimes(2);
+    expect(f.tx.documentUpload.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ cleanupAt: expect.any(Date) }) }),
+    );
+  });
+  it('stops retrying a missing staged path once the upload has been FAILED for over a week', async () => {
+    const f = fixture();
+    f.tx.documentUpload.findUniqueOrThrow.mockResolvedValueOnce({
+      id: 'upload',
+      status: 'FAILED',
+      objectKey: 'object.enc',
+      cleanupAt: null,
+      settledAt: new Date(Date.now() - 8 * 86_400_000),
+    });
+    f.objects.discardUnreferenced.mockRejectedValueOnce(
+      Object.assign(new Error('missing'), { code: 'ENOENT' }),
+    );
+    await f.service.recoverOne('upload', f.objects);
     expect(f.tx.documentUpload.update).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ cleanupAt: expect.any(Date) }) }),
     );

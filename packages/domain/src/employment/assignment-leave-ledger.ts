@@ -286,7 +286,18 @@ export function calculateAssignmentLeaveLedger(
     ({ segment }) => !sameBusinessConfiguration(first.segment, segment),
   );
   if (!hasDifferingConfiguration) {
-    return calculateLeaveLedger(input, first.segment.rule);
+    // A configured WORKING_DAYS basis (TV-L §26(1)) applies to a single configuration too.
+    const useWorkingDays = input.calculationPolicy?.partTimeBasis === 'WORKING_DAYS';
+    return calculateLeaveLedger(
+      useWorkingDays
+        ? {
+            ...input,
+            workTimeModelWeeklyHours:
+              first.segment.rule.fullTimeWeeklyHours * partTimeRatio(first.segment, 'WORKING_DAYS'),
+          }
+        : input,
+      first.segment.rule,
+    );
   }
 
   const policy = requireSupportedPolicy(input.calculationPolicy);

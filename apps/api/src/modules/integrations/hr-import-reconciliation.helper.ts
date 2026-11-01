@@ -12,7 +12,11 @@ import {
   lockEmploymentPopulationWrites,
 } from '../../platform/transactions/transaction-lock.helper.js';
 import { forEachHrImportBatch } from './hr-import-batching.js';
-import type { ValidatedHrImportRow } from './hr-import-validation.js';
+import {
+  DEFAULT_ORGANIZATION_UNIT,
+  DEFAULT_WORK_TIME_MODEL,
+  type ValidatedHrImportRow,
+} from './hr-import-validation.js';
 
 type HrImportTransaction = Prisma.TransactionClient;
 
@@ -59,6 +63,12 @@ function addExistingPersonForRow(
     );
   }
 
+  if (!byExternalId && byEmail?.externalId && byEmail.externalId !== row.externalId) {
+    throw new BadRequestException(
+      `HR email belongs to another externalId: email="${row.email}" is held by "${byEmail.externalId}", not "${row.externalId}".`,
+    );
+  }
+
   existingPeople.set(row.externalId, byExternalId ?? byEmail);
 }
 
@@ -96,6 +106,17 @@ async function queryRows(tx: HrImportTransaction, rows: ValidatedHrImportRow[]) 
   const existingPeople = new Map<string, ExistingPerson | null>();
   for (const row of rows) {
     addExistingPersonForRow(existingPeople, peopleByExternalId, peopleByEmail, row);
+  }
+  const claimedBy = new Map<string, string>();
+  for (const [externalId, person] of existingPeople) {
+    if (!person) continue;
+    const other = claimedBy.get(person.id);
+    if (other) {
+      throw new BadRequestException(
+        `HR rows externalId="${other}" and externalId="${externalId}" resolve to the same person.`,
+      );
+    }
+    claimedBy.set(person.id, externalId);
   }
 
   return { existingPeople, peopleByExternalId } satisfies HrImportQuerySet;
@@ -184,47 +205,95 @@ function rowsById(
   return rowsById;
 }
 
+/** Rows that name the unit/model explicitly may update it; defaults for new people only fill gaps. */
+function splitByNaming(
+  rows: ValidatedHrImportRow[],
+  querySet: HrImportQuerySet,
+  field: 'organizationUnit' | 'workTimeModel',
+  id: 'organizationUnitId' | 'workTimeModelId',
+  updates: (row: ValidatedHrImportRow) => boolean = (row) => row[field] !== undefined,
+) {
+  const named = [...rowsById(rows.filter(updates), id).values()];
+  const namedIds = new Set(named.map((row) => row[id]));
+  // Rows that may not update still need the record to exist: new people, or a model named without hours.
+  const defaulted = [
+    ...rowsById(
+      rows.filter(
+        (row) =>
+          !updates(row) && (row[field] !== undefined || !findExistingPersonForRow(querySet, row)),
+      ),
+      id,
+    ).values(),
+  ].filter((row) => !namedIds.has(row[id]));
+  return { named, defaulted };
+}
+
 async function importValidatedRows(
   tx: HrImportTransaction,
   rows: ValidatedHrImportRow[],
   querySet: HrImportQuerySet,
 ) {
   const importedPeople = new Map<string, string>();
-  const organizationUnits = [...rowsById(rows, 'organizationUnitId').values()];
-  await forEachHrImportBatch(organizationUnits, async (batch) => {
-    const values = batch.map(
-      (row) => Prisma.sql`(${row.organizationUnitId}, ${row.organizationUnit}, CURRENT_TIMESTAMP)`,
-    );
-    await tx.$executeRaw(Prisma.sql`
-      INSERT INTO "organization_units" ("id", "name", "updatedAt")
-      VALUES ${Prisma.join(values)}
-      ON CONFLICT ("id") DO UPDATE
-      SET "name" = EXCLUDED."name", "updatedAt" = CURRENT_TIMESTAMP
-    `);
-  });
+  const units = splitByNaming(rows, querySet, 'organizationUnit', 'organizationUnitId');
+  for (const [batchRows, onConflict] of [
+    [
+      units.named,
+      Prisma.sql`DO UPDATE SET "name" = EXCLUDED."name", "updatedAt" = CURRENT_TIMESTAMP`,
+    ],
+    [units.defaulted, Prisma.sql`DO NOTHING`],
+  ] as const) {
+    await forEachHrImportBatch(batchRows, async (batch) => {
+      const values = batch.map(
+        (row) =>
+          Prisma.sql`(${row.organizationUnitId}, ${row.organizationUnit ?? DEFAULT_ORGANIZATION_UNIT}, CURRENT_TIMESTAMP)`,
+      );
+      await tx.$executeRaw(Prisma.sql`
+        INSERT INTO "organization_units" ("id", "name", "updatedAt")
+        VALUES ${Prisma.join(values)}
+        ON CONFLICT ("id") ${onConflict}
+      `);
+    });
+  }
 
-  const workTimeModels = [...rowsById(rows, 'workTimeModelId').values()];
-  await forEachHrImportBatch(workTimeModels, async (batch) => {
-    const values = batch.map(
-      (row) => Prisma.sql`(
-        ${row.workTimeModelId}, ${row.workTimeModel},
-        ${WorkTimeModelType.FLEXTIME}::"WorkTimeModelType",
-        ${row.parsedWeeklyHours}::numeric, ${row.parsedDailyTargetHours}::numeric,
-        ${new Date('2026-01-01T00:00:00.000Z')}, CURRENT_TIMESTAMP
-      )`,
-    );
-    await tx.$executeRaw(Prisma.sql`
-      INSERT INTO "work_time_models" (
-        "id", "name", "type", "weeklyHours", "dailyTargetHours", "effectiveFrom", "updatedAt"
-      )
-      VALUES ${Prisma.join(values)}
-      ON CONFLICT ("id") DO UPDATE SET
+  // A model named without hours columns must not reset the shared model to default hours.
+  const models = splitByNaming(
+    rows,
+    querySet,
+    'workTimeModel',
+    'workTimeModelId',
+    (row) =>
+      row.workTimeModel !== undefined &&
+      (row.weeklyHours !== undefined || row.dailyTargetHours !== undefined),
+  );
+  for (const [batchRows, onConflict] of [
+    [
+      models.named,
+      Prisma.sql`DO UPDATE SET
         "name" = EXCLUDED."name",
         "weeklyHours" = EXCLUDED."weeklyHours",
         "dailyTargetHours" = EXCLUDED."dailyTargetHours",
-        "updatedAt" = CURRENT_TIMESTAMP
-    `);
-  });
+        "updatedAt" = CURRENT_TIMESTAMP`,
+    ],
+    [models.defaulted, Prisma.sql`DO NOTHING`],
+  ] as const) {
+    await forEachHrImportBatch(batchRows, async (batch) => {
+      const values = batch.map(
+        (row) => Prisma.sql`(
+          ${row.workTimeModelId}, ${row.workTimeModel ?? DEFAULT_WORK_TIME_MODEL},
+          ${WorkTimeModelType.FLEXTIME}::"WorkTimeModelType",
+          ${row.parsedWeeklyHours}::numeric, ${row.parsedDailyTargetHours}::numeric,
+          ${new Date('2026-01-01T00:00:00.000Z')}, CURRENT_TIMESTAMP
+        )`,
+      );
+      await tx.$executeRaw(Prisma.sql`
+        INSERT INTO "work_time_models" (
+          "id", "name", "type", "weeklyHours", "dailyTargetHours", "effectiveFrom", "updatedAt"
+        )
+        VALUES ${Prisma.join(values)}
+        ON CONFLICT ("id") ${onConflict}
+      `);
+    });
+  }
 
   const existingRows = rows.flatMap((row) => {
     const existing = findExistingPersonForRow(querySet, row);
@@ -235,7 +304,9 @@ async function importValidatedRows(
       const data = personDataForRow(row);
       return Prisma.sql`(
         ${existing.id}, ${data.externalId}, ${data.firstName}, ${data.lastName}, ${data.email},
-        ${data.role}::"Role", ${data.organizationUnitId}, ${data.workTimeModelId}
+        ${row.role === undefined ? null : data.role}::"Role",
+        ${row.organizationUnit === undefined ? null : data.organizationUnitId}::text,
+        ${row.workTimeModel === undefined ? null : data.workTimeModelId}::text
       )`;
     });
     await tx.$executeRaw(Prisma.sql`
@@ -244,9 +315,9 @@ async function importValidatedRows(
         "firstName" = CASE WHEN EXISTS (SELECT 1 FROM personnel_fields f WHERE f."personId" = person.id AND f.key = 'firstName') THEN person."firstName" ELSE data.first_name END,
         "lastName" = CASE WHEN EXISTS (SELECT 1 FROM personnel_fields f WHERE f."personId" = person.id AND f.key = 'lastName') THEN person."lastName" ELSE data.last_name END,
         "email" = data.email,
-        "role" = data.role::"Role",
-        "organizationUnitId" = data.organization_unit_id,
-        "workTimeModelId" = data.work_time_model_id,
+        "role" = COALESCE(data.role::"Role", person."role"),
+        "organizationUnitId" = COALESCE(data.organization_unit_id, person."organizationUnitId"),
+        "workTimeModelId" = COALESCE(data.work_time_model_id, person."workTimeModelId"),
         "updatedAt" = CURRENT_TIMESTAMP
       FROM (VALUES ${Prisma.join(values)}) AS data(
         id, external_id, first_name, last_name, email, role,

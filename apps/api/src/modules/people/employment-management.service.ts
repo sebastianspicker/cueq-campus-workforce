@@ -26,13 +26,24 @@ import { assertPersonnelScope } from './personnel-scope.js';
 import { CapabilityHelper } from './capability.helper.js';
 
 type TermInput = ReturnType<typeof CreateEmploymentTermSchema.parse>;
+// Leave, assignment coverage and time accounts read these boundaries as UTC dates.
+function calendarDate(value: string | null | undefined): Date | null {
+  if (!value) return null;
+  const date = new Date(value);
+  if (date.getTime() % 86_400_000 !== 0)
+    throw new BadRequestException('Employment dates must be calendar dates (UTC midnight).');
+  return date;
+}
 function termData(input: TermInput) {
   if (new Set(input.workingDays).size !== input.workingDays.length)
     throw new BadRequestException('Working days must be distinct ISO weekdays.');
+  const dayFraction = input.policyReferences.timeAccountTargetProration === 'UTC_DAY_FRACTION';
+  const bound = (value: string | null | undefined) =>
+    dayFraction ? (value ? new Date(value) : null) : calendarDate(value);
   return {
     ...input,
-    effectiveFrom: new Date(input.effectiveFrom),
-    effectiveTo: input.effectiveTo ? new Date(input.effectiveTo) : null,
+    effectiveFrom: bound(input.effectiveFrom) as Date,
+    effectiveTo: bound(input.effectiveTo),
     policyReferences: input.policyReferences as Prisma.InputJsonValue,
   };
 }
@@ -119,10 +130,8 @@ export class EmploymentManagementService {
   async create(actorId: string, payload: unknown) {
     const input = parseRequest(CreateEmploymentAssignmentSchema, payload);
     const term = termData(input.term);
-    const employmentStartDate = input.employmentStartDate
-      ? new Date(input.employmentStartDate)
-      : null;
-    const employmentEndDate = input.employmentEndDate ? new Date(input.employmentEndDate) : null;
+    const employmentStartDate = calendarDate(input.employmentStartDate);
+    const employmentEndDate = calendarDate(input.employmentEndDate);
     if (
       (employmentStartDate && employmentEndDate && employmentStartDate > employmentEndDate) ||
       (employmentStartDate && term.effectiveFrom < employmentStartDate) ||

@@ -1,7 +1,7 @@
+import { DEFAULT_LEAVE_RULE } from '@cueq/policy';
 import { describe, expect, it } from 'vitest';
 import {
   calculateLeaveLedger,
-  calculateLeaveQuota,
   calculateProratedMonthlyTarget,
   parseDateOnly,
   parseDateOrDateTime,
@@ -46,40 +46,6 @@ describe('absence calculations through the public domain API', () => {
     },
   ])('$name', ({ input, expected }) => {
     expect(calculateProratedMonthlyTarget(input)).toEqual(expected);
-  });
-
-  it.each([
-    {
-      name: 'prorates entry and exit employment and forfeits carry-over after the deadline',
-      input: {
-        year: 2026,
-        employmentFraction: 1,
-        entryDate: '2026-04-01',
-        exitDate: '2026-12-31',
-        usedDays: 2,
-        carryOverDays: 5,
-        asOfDate: '2026-04-01',
-      },
-      expected: {
-        entitlementDays: 22.5,
-        carriedOverDays: 5,
-        forfeitedDays: 5,
-        remainingDays: 20.5,
-      },
-    },
-    {
-      name: 'retains carry-over on the deadline itself',
-      input: {
-        year: 2026,
-        employmentFraction: 0.5,
-        usedDays: 1,
-        carryOverDays: 50,
-        asOfDate: '2026-03-31',
-      },
-      expected: { entitlementDays: 15, carriedOverDays: 30, forfeitedDays: 0, remainingDays: 44 },
-    },
-  ])('$name', ({ input, expected }) => {
-    expect(calculateLeaveQuota(input)).toEqual(expected);
   });
 
   it('allocates usage to carry-over before entitlement, applies cutoff, and ignores other years', () => {
@@ -149,5 +115,20 @@ describe('calendar parsing contracts exported by the domain root', () => {
   it('normalizes optional holiday input into an independent set', () => {
     expect(toHolidaySet()).toEqual(new Set());
     expect(toHolidaySet(['2026-01-01', '2026-01-01'])).toEqual(new Set(['2026-01-01']));
+  });
+
+  it('grants no carry-over when the rule disables it', () => {
+    const ledger = calculateLeaveLedger(
+      {
+        year: 2026,
+        asOfDate: '2026-02-01',
+        workTimeModelWeeklyHours: 39.83,
+        priorYearCarryOverDays: 10,
+        annualLeaveUsage: [],
+      },
+      { ...DEFAULT_LEAVE_RULE, carryOver: { ...DEFAULT_LEAVE_RULE.carryOver, enabled: false } },
+    );
+    expect(ledger.carriedOverDays).toBe(0);
+    expect(ledger.remainingDays).toBe(ledger.entitlementDays);
   });
 });

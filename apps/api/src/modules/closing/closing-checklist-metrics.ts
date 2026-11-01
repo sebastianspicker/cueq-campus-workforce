@@ -8,6 +8,7 @@ import {
   type ClosingStatus,
 } from '@cueq/database';
 import type { ChecklistFinding } from '@cueq/domain';
+import { BookingCorrectionPayloadSchema } from '@cueq/contracts';
 import type { PrismaService } from '../../persistence/prisma.service.js';
 import {
   buildRosterPlanVsActualFromBookings,
@@ -21,7 +22,6 @@ import {
   type ClosingTimeThresholds,
 } from './closing-checklist-rules.js';
 import { closingBalanceAnomalyHours } from './closing-config.js';
-import type { AssignmentHelper } from '../people/public.js';
 import type { TimeAccountsPort } from '../attendance/public.js';
 
 export type ClosingDb = Pick<
@@ -51,7 +51,6 @@ export async function calculateClosingChecklistMetrics(
   db: ClosingDb,
   period: ChecklistPeriod,
   getActiveThresholds: () => Promise<ClosingTimeThresholds>,
-  assignmentHelper: Pick<AssignmentHelper, 'resolveInterval'>,
   timeAccounts: Pick<TimeAccountsPort, 'listMissingForClosing'>,
 ) {
   const [population, timeThresholds] = await Promise.all([
@@ -62,7 +61,6 @@ export async function calculateClosingChecklistMetrics(
     db,
     period,
     population,
-    assignmentHelper,
   );
   const bookingMetrics = calculateClosingBookingMetrics(
     ruleBookings,
@@ -77,8 +75,8 @@ export async function calculateClosingChecklistMetrics(
   );
   const { findings: bookingFindings, ...bookingCounts } = bookingMetrics;
   const [requests, rosterMismatches, balanceAnomalies, missingAccounts] = await Promise.all([
-    openRequestCounts(db, period, population.appointments, assignmentHelper),
-    rosterMismatchCount(db, period, assignmentHelper),
+    openRequestCounts(db, period, population.appointments, ruleBookings),
+    rosterMismatchCount(db, period),
     balanceAnomalyCount(db, period, population.assignmentIds),
     timeAccounts.listMissingForClosing(db, period),
   ]);
@@ -149,6 +147,69 @@ async function withPersonNames(
   );
 }
 
+/**
+ * Loads the terms of many appointments in one query and resolves the organization unit of an
+ * instant in memory, instead of one term query per booking or absence.
+ */
+async function organizationUnitResolver(
+  db: ClosingDb,
+  assignmentIds: Iterable<string>,
+  from: Date,
+  to: Date,
+): Promise<(assignmentId: string, at: Date) => string | undefined> {
+  const ids = [...new Set(assignmentIds)];
+  const terms = ids.length
+    ? await db.employmentTerm.findMany({
+        where: {
+          assignmentId: { in: ids },
+          AND: [
+            { OR: [{ effectiveFrom: null }, { effectiveFrom: { lte: to } }] },
+            { OR: [{ effectiveTo: null }, { effectiveTo: { gt: from } }] },
+          ],
+        },
+        select: {
+          assignmentId: true,
+          organizationUnitId: true,
+          effectiveFrom: true,
+          effectiveTo: true,
+        },
+      })
+    : [];
+  const byAssignment = new Map<string, typeof terms>();
+  for (const term of terms) {
+    const list = byAssignment.get(term.assignmentId) ?? [];
+    list.push(term);
+    byAssignment.set(term.assignmentId, list);
+  }
+  return (assignmentId, instant) => {
+    // Records that start before the window count with the unit in effect at its start.
+    const at = instant < from ? from : instant;
+    return byAssignment
+      .get(assignmentId)
+      ?.find(
+        (term) =>
+          (!term.effectiveFrom || term.effectiveFrom <= at) &&
+          (!term.effectiveTo || at < term.effectiveTo),
+      )?.organizationUnitId;
+  };
+}
+
+/** True when the appointment belongs to the period's unit at that instant (always for global periods). */
+async function unitResolverForPeriod(
+  db: ClosingDb,
+  period: ChecklistPeriod,
+  assignmentIds: string[],
+): Promise<(assignmentId: string, at: Date) => boolean> {
+  if (!period.organizationUnitId) return () => true;
+  const unitAt = await organizationUnitResolver(
+    db,
+    assignmentIds,
+    period.periodStart,
+    period.periodEnd,
+  );
+  return (assignmentId, at) => unitAt(assignmentId, at) === period.organizationUnitId;
+}
+
 type ClosingPopulation = {
   personIds: string[];
   assignmentIds: string[];
@@ -193,7 +254,6 @@ async function closingBookingsAndAbsences(
   db: ClosingDb,
   period: ChecklistPeriod,
   population: ClosingPopulation,
-  assignmentHelper: Pick<AssignmentHelper, 'resolveInterval'>,
 ): Promise<{
   ruleBookings: ClosingChecklistBooking[];
   coverageBookings: ClosingChecklistBooking[];
@@ -233,34 +293,16 @@ async function closingBookingsAndAbsences(
   ]);
 
   const assignmentIds = new Set(population.assignmentIds);
-  const coverageBookings: ClosingChecklistBooking[] = [];
-  for (const booking of ruleBookings) {
-    if (!booking.endTime || !assignmentIds.has(booking.assignmentId)) continue;
-    const employment = await assignmentHelper.resolveInterval(
-      booking.personId,
-      booking.startTime,
-      booking.endTime,
-      booking.assignmentId,
-      db,
-    );
-    if (!period.organizationUnitId || employment.organizationUnitId === period.organizationUnitId) {
-      coverageBookings.push(booking);
-    }
-  }
-
-  const approvedAbsences: Array<{ assignmentId: string }> = [];
-  for (const absence of absences) {
-    const employment = await assignmentHelper.resolveInterval(
-      absence.personId,
-      absence.startDate,
-      new Date(absence.endDate.getTime() + 86_400_000),
-      absence.assignmentId,
-      db,
-    );
-    if (!period.organizationUnitId || employment.organizationUnitId === period.organizationUnitId) {
-      approvedAbsences.push({ assignmentId: absence.assignmentId });
-    }
-  }
+  const unitAt = await unitResolverForPeriod(db, period, population.assignmentIds);
+  const coverageBookings = ruleBookings.filter(
+    (booking) =>
+      booking.endTime &&
+      assignmentIds.has(booking.assignmentId) &&
+      unitAt(booking.assignmentId, booking.startTime),
+  );
+  const approvedAbsences = absences
+    .filter((absence) => unitAt(absence.assignmentId, absence.startDate))
+    .map((absence) => ({ assignmentId: absence.assignmentId }));
 
   return { ruleBookings, coverageBookings, approvedAbsences };
 }
@@ -269,7 +311,7 @@ async function openRequestCounts(
   db: ClosingDb,
   period: ChecklistPeriod,
   appointments: ClosingPopulation['appointments'],
-  assignmentHelper: Pick<AssignmentHelper, 'resolveInterval'>,
+  periodBookings: Array<{ id: string; assignmentId: string; startTime: Date }>,
 ) {
   const assignmentIds = appointments.map((appointment) => appointment.assignmentId);
   if (assignmentIds.length === 0) {
@@ -280,7 +322,7 @@ async function openRequestCounts(
     });
   }
 
-  const [openCorrections, requestedAbsences] = await Promise.all([
+  const [openCorrectionWorkflows, requestedAbsences] = await Promise.all([
     db.workflowInstance.findMany({
       where: {
         type: WorkflowType.BOOKING_CORRECTION,
@@ -288,9 +330,8 @@ async function openRequestCounts(
           in: [WorkflowStatus.SUBMITTED, WorkflowStatus.PENDING, WorkflowStatus.ESCALATED],
         },
         assignmentId: { in: assignmentIds },
-        createdAt: { gte: period.periodStart, lte: period.periodEnd },
       },
-      select: { id: true, assignmentId: true, entityId: true },
+      select: { id: true, assignmentId: true, entityId: true, requestPayload: true },
       orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
     }),
     db.absence.findMany({
@@ -303,19 +344,22 @@ async function openRequestCounts(
       select: { personId: true, assignmentId: true, startDate: true, endDate: true },
     }),
   ]);
-  let openLeaveRequests = 0;
-  for (const absence of requestedAbsences) {
-    const employment = await assignmentHelper.resolveInterval(
-      absence.personId,
-      absence.startDate,
-      new Date(absence.endDate.getTime() + 86_400_000),
-      absence.assignmentId,
-      db,
+  const unitAt = await unitResolverForPeriod(db, period, assignmentIds);
+  const openLeaveRequests = requestedAbsences.filter((absence) =>
+    unitAt(absence.assignmentId, absence.startDate),
+  ).length;
+  // A correction belongs to the period of the booking it corrects or of its requested new start.
+  const inPeriod = (instant: Date) => instant >= period.periodStart && instant <= period.periodEnd;
+  const periodBookingIds = new Set(
+    periodBookings.filter((booking) => inPeriod(booking.startTime)).map((booking) => booking.id),
+  );
+  const openCorrections = openCorrectionWorkflows.filter((workflow) => {
+    if (periodBookingIds.has(workflow.entityId)) return true;
+    const payload = BookingCorrectionPayloadSchema.safeParse(workflow.requestPayload);
+    return Boolean(
+      payload.success && payload.data.startTime && inPeriod(new Date(payload.data.startTime)),
     );
-    if (!period.organizationUnitId || employment.organizationUnitId === period.organizationUnitId) {
-      openLeaveRequests += 1;
-    }
-  }
+  });
   // The appointment owner, not the requester: HR may file corrections on someone's behalf.
   const ownerByAssignment = new Map(
     appointments.map((appointment) => [appointment.assignmentId, appointment.personId]),
@@ -336,11 +380,7 @@ async function openRequestCounts(
   };
 }
 
-async function rosterMismatchCount(
-  db: ClosingDb,
-  period: ChecklistPeriod,
-  assignmentHelper: Pick<AssignmentHelper, 'resolveInterval'>,
-): Promise<number> {
+async function rosterMismatchCount(db: ClosingDb, period: ChecklistPeriod): Promise<number> {
   const rosters = await db.roster.findMany({
     where: {
       periodStart: { lte: period.periodEnd },
@@ -391,20 +431,20 @@ async function rosterMismatchCount(
       timeType: { select: { category: true } },
     },
   });
+  const unitAt = await organizationUnitResolver(
+    db,
+    bookings.map((booking) => booking.assignmentId),
+    earliestRosterStart,
+    latestRosterEnd,
+  );
   const bookingsByOrganizationUnit = new Map<string, PlanVsActualBooking[]>();
   for (const booking of bookings) {
     if (!booking.endTime) continue;
-    const employment = await assignmentHelper.resolveInterval(
-      booking.personId,
-      booking.startTime,
-      booking.endTime,
-      booking.assignmentId,
-      db,
-    );
-    const organizationBookings =
-      bookingsByOrganizationUnit.get(employment.organizationUnitId) ?? [];
+    const organizationUnitId = unitAt(booking.assignmentId, booking.startTime);
+    if (!organizationUnitId) continue;
+    const organizationBookings = bookingsByOrganizationUnit.get(organizationUnitId) ?? [];
     organizationBookings.push(booking);
-    bookingsByOrganizationUnit.set(employment.organizationUnitId, organizationBookings);
+    bookingsByOrganizationUnit.set(organizationUnitId, organizationBookings);
   }
   const coverage = rosters.map((roster) =>
     buildRosterPlanVsActualFromBookings(

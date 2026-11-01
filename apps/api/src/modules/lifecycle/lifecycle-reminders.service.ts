@@ -12,6 +12,9 @@ import { lifecycleToday } from './lifecycle-date.js';
 export class LifecycleRemindersService implements OnApplicationBootstrap {
   private running = false;
   private cursor: string | undefined;
+  // Tasks already notified for their current dueDate and recipient source; avoids re-running three queries per task every poll.
+  // shortcut: per-process memory, cleared when large; a restart redoes one idempotent pass.
+  private readonly notified = new Set<string>();
   private readonly logger = new Logger(LifecycleRemindersService.name);
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
@@ -32,14 +35,17 @@ export class LifecycleRemindersService implements OnApplicationBootstrap {
           dueDate: { lte: today },
           ...(this.cursor ? { id: { gt: this.cursor } } : {}),
         },
-        select: { id: true },
+        select: { id: true, dueDate: true, responsiblePersonId: true, responsibleGroupId: true },
         orderBy: { id: 'asc' },
         take: 100,
       });
-      for (const item of tasks)
-        await this.prisma.$transaction(async (tx) => {
+      if (this.notified.size > 10_000) this.notified.clear();
+      for (const item of tasks) {
+        const key = `${item.id}:${item.dueDate.toISOString()}:${item.responsiblePersonId ?? `group:${item.responsibleGroupId}`}`;
+        if (this.notified.has(key)) continue;
+        const appended = await this.prisma.$transaction(async (tx) => {
           const task = await tx.lifecycleTask.findUnique({ where: { id: item.id } });
-          if (!task || task.status !== 'OPEN' || task.dueDate > today) return;
+          if (!task || task.status !== 'OPEN' || task.dueDate > today) return false;
           const recipients = task.responsiblePersonId
             ? [task.responsiblePersonId]
             : (
@@ -61,7 +67,10 @@ export class LifecycleRemindersService implements OnApplicationBootstrap {
               dedupeKey: `task-due:${task.id}:${task.dueDate.toISOString()}:${recipientId}`,
             })),
           );
+          return true;
         });
+        if (appended) this.notified.add(key);
+      }
       this.cursor = tasks.length === 100 ? tasks.at(-1)?.id : undefined;
     } catch {
       this.logger.warn('Task reminders will retry after a storage failure.');

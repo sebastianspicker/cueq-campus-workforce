@@ -8,7 +8,7 @@ import {
   ensureWorkflowPolicyInTransaction,
   WORKFLOW_ROUTING_LOCK_SCOPE,
 } from './workflow-assignment-policy.js';
-import { lockPolicyWrites } from '../../platform/transactions/transaction-lock.helper.js';
+import { lockPolicyReadsShared } from '../../platform/transactions/transaction-lock.helper.js';
 import type { WorkflowAssignmentInput, WorkflowAssignmentResult } from './workflow-contracts.js';
 import { appendTrail } from './workflow-persistence-normalization.js';
 import { isRoleAllowedForType } from './workflow-routing-policy.js';
@@ -17,89 +17,77 @@ import { addHours, toIso } from './workflow-time.js';
 type PersonStore = Pick<PrismaService, 'person'>;
 type DelegationStore = Pick<PrismaService, 'person' | 'workflowDelegationRule'>;
 
+// employmentEndDate is an inclusive date stored at UTC midnight, so the last day still counts all day.
+function startOfUtcToday() {
+  const now = new Date();
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+}
+
+/** Oldest active person with one of the roles; an undefined unit searches globally, never as fallback. */
 export async function firstPersonByRoles(
   roles: Role[],
   organizationUnitId: string | undefined,
   excludeId: string | undefined,
   db: PersonStore,
 ): Promise<string | null> {
-  const where: Prisma.PersonWhereInput = {
-    role: { in: roles },
-    id: excludeId ? { not: excludeId } : undefined,
-    organizationUnitId,
-  };
-  const person =
-    (await db.person.findFirst({
-      where,
-      orderBy: { createdAt: 'asc' },
-      select: { id: true },
-    })) ??
-    (organizationUnitId
-      ? await db.person.findFirst({
-          where: {
-            role: { in: roles },
-            id: excludeId ? { not: excludeId } : undefined,
-          },
-          orderBy: { createdAt: 'asc' },
-          select: { id: true },
-        })
-      : null);
+  const person = await db.person.findFirst({
+    where: {
+      role: { in: roles },
+      id: excludeId ? { not: excludeId } : undefined,
+      organizationUnitId,
+      OR: [{ employmentEndDate: null }, { employmentEndDate: { gte: startOfUtcToday() } }],
+    },
+    orderBy: { createdAt: 'asc' },
+    select: { id: true },
+  });
 
   return person?.id ?? null;
+}
+
+async function isUsablePreferredApprover(
+  input: WorkflowAssignmentInput,
+  db: PersonStore,
+): Promise<boolean> {
+  if (!input.preferredApproverId || input.preferredApproverId === input.requesterId) {
+    return false;
+  }
+  const preferred = await db.person.findUnique({
+    where: { id: input.preferredApproverId },
+    select: { role: true, employmentEndDate: true },
+  });
+  return Boolean(
+    preferred &&
+    isRoleAllowedForType(preferred.role, input.type) &&
+    (!preferred.employmentEndDate || preferred.employmentEndDate >= startOfUtcToday()),
+  );
 }
 
 async function resolveBaseApprover(
   input: WorkflowAssignmentInput,
   db: PersonStore,
 ): Promise<string | null> {
-  if (input.preferredApproverId) {
-    return input.preferredApproverId;
+  if (await isUsablePreferredApprover(input, db)) {
+    return input.preferredApproverId ?? null;
   }
 
-  if (input.type === WorkflowType.SHIFT_SWAP) {
-    const planner = await firstPersonByRoles(
-      [Role.SHIFT_PLANNER],
-      input.requesterOrganizationUnitId,
-      input.requesterId,
-      db,
-    );
-    if (planner) {
-      return planner;
-    }
-
-    return firstPersonByRoles(
-      [Role.HR, Role.ADMIN],
-      input.requesterOrganizationUnitId,
-      input.requesterId,
-      db,
-    );
-  }
-
+  const unitId = input.requesterOrganizationUnitId;
+  const hrRoles = [Role.HR, Role.ADMIN];
   if (input.type === WorkflowType.POST_CLOSE_CORRECTION) {
-    return firstPersonByRoles([Role.HR, Role.ADMIN], undefined, input.requesterId, db);
+    return firstPersonByRoles(hrRoles, undefined, input.requesterId, db);
   }
 
-  const teamLead = await firstPersonByRoles(
-    [Role.TEAM_LEAD],
-    input.requesterOrganizationUnitId,
-    input.requesterId,
-    db,
-  );
-  if (teamLead) {
-    return teamLead;
-  }
-
-  return firstPersonByRoles(
-    [Role.HR, Role.ADMIN],
-    input.requesterOrganizationUnitId,
-    undefined,
-    db,
+  const leadRole = input.type === WorkflowType.SHIFT_SWAP ? Role.SHIFT_PLANNER : Role.TEAM_LEAD;
+  return (
+    (await firstPersonByRoles([leadRole], unitId, input.requesterId, db)) ??
+    (await firstPersonByRoles(hrRoles, unitId, input.requesterId, db)) ??
+    (await firstPersonByRoles(hrRoles, undefined, input.requesterId, db))
   );
 }
 
 async function delegationCandidates(
   input: {
     primaryApproverId: string;
+    requesterId: string;
     workflowType: WorkflowType;
     organizationUnitId: string;
     at: Date;
@@ -150,7 +138,9 @@ async function delegationCandidates(
 
     const selectedRule = rules.find((rule) => {
       const delegate = delegateById.get(rule.delegateId);
-      return delegate ? isRoleAllowedForType(delegate.role, input.workflowType) : false;
+      return delegate && delegate.id !== input.requesterId
+        ? isRoleAllowedForType(delegate.role, input.workflowType)
+        : false;
     });
     if (!selectedRule) {
       break;
@@ -178,7 +168,7 @@ export async function buildWorkflowAssignmentInTransaction(
   tx: Prisma.TransactionClient,
   input: WorkflowAssignmentInput,
 ): Promise<WorkflowAssignmentResult> {
-  await lockPolicyWrites(tx, WORKFLOW_ROUTING_LOCK_SCOPE);
+  await lockPolicyReadsShared(tx, WORKFLOW_ROUTING_LOCK_SCOPE);
   const policy = await ensureWorkflowPolicyInTransaction(tx, input.type);
   const requestedAt = input.requestedAt ?? new Date();
   const approver = await resolveBaseApprover(input, tx);
@@ -220,6 +210,7 @@ export async function buildWorkflowAssignmentInTransaction(
   const candidates = await delegationCandidates(
     {
       primaryApproverId: approver,
+      requesterId: input.requesterId,
       workflowType: input.type,
       organizationUnitId: input.requesterOrganizationUnitId,
       at: requestedAt,

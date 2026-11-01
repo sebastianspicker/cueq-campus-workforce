@@ -1,6 +1,6 @@
 /** Injectable provider for workflow runtime operations. */
 import { Inject, Injectable } from '@nestjs/common';
-import type { Prisma, WorkflowInstance, WorkflowPolicy, WorkflowType } from '@cueq/database';
+import type { Prisma, WorkflowPolicy, WorkflowType } from '@cueq/database';
 import type {
   WorkflowAction,
   WorkflowDecisionCommand,
@@ -10,7 +10,7 @@ import type {
 import { PrismaService } from '../../persistence/prisma.service.js';
 import { WorkflowAssignmentHelper } from './workflow-assignment.helper.js';
 import { WorkflowDelegationCrudHelper } from './workflow-delegation-crud.helper.js';
-import { availableWorkflowActions, normalizeWorkflowAction } from './workflow-action-visibility.js';
+import { normalizeWorkflowAction } from './workflow-action-visibility.js';
 import * as operations from './workflow-runtime-operations.js';
 import {
   getWorkflowDetail,
@@ -40,10 +40,6 @@ export class WorkflowRuntimeService {
 
   normalizeAction(command: WorkflowDecisionCommand): WorkflowAction {
     return normalizeWorkflowAction(command);
-  }
-
-  availableActions(workflow: WorkflowInstance, actor: WorkflowActor): WorkflowAction[] {
-    return availableWorkflowActions(workflow, actor);
   }
 
   async listInbox(actor: WorkflowActor, query: WorkflowInboxQuery) {

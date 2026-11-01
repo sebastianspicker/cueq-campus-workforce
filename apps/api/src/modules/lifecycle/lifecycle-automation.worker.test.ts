@@ -38,6 +38,7 @@ function setup(overrides: Partial<typeof rule> = {}) {
   const prisma = {
     lifecycleAutomationRule: { findMany: vi.fn().mockResolvedValue([activeRule]) },
     employmentAssignment: { findMany: vi.fn().mockResolvedValue([assignment]) },
+    lifecycleInstance: { findMany: vi.fn().mockResolvedValue([]) },
   };
   const assignments = {
     resolveInterval: vi.fn().mockResolvedValue({
@@ -92,5 +93,42 @@ describe('LifecycleAutomationWorker', () => {
 
     expect(prisma.employmentAssignment.findMany).not.toHaveBeenCalled();
     expect(instances.activate).not.toHaveBeenCalled();
+  });
+
+  it('skips a candidate whose exact event key exists and activates a changed base date', async () => {
+    const { worker, prisma, instances } = setup();
+    prisma.lifecycleInstance.findMany.mockResolvedValue([
+      { eventKey: 'automation:rule-1:assignment-1:2026-09-03' },
+    ]);
+
+    await worker.runOnce();
+
+    expect(prisma.lifecycleInstance.findMany).toHaveBeenCalledTimes(1);
+    expect(prisma.lifecycleInstance.findMany).toHaveBeenCalledWith({
+      where: {
+        templateId: 'template-1',
+        eventKey: { in: ['automation:rule-1:assignment-1:2026-09-03'] },
+      },
+      select: { eventKey: true },
+    });
+    expect(instances.activate).not.toHaveBeenCalled();
+
+    // The start date moved: the old instance has a different key, so the rule fires again.
+    prisma.employmentAssignment.findMany.mockResolvedValue([
+      {
+        id: 'assignment-1',
+        personId: 'person-1',
+        sourceSystem: 'HR',
+        employmentStartDate: new Date('2026-09-04T00:00:00.000Z'),
+        employmentEndDate: null,
+        createdAt: new Date('2026-08-01T00:00:00.000Z'),
+      },
+    ]);
+    await worker.runOnce();
+    expect(instances.activate).toHaveBeenCalledWith(
+      'actor-1',
+      expect.objectContaining({ eventKey: 'automation:rule-1:assignment-1:2026-09-04' }),
+      { automationRuleId: 'rule-1' },
+    );
   });
 });

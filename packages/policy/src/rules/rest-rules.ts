@@ -6,12 +6,10 @@ import { PolicyRuleMetaSchema } from '../types.js';
  * Rest period rules (ArbZG §5).
  * - Minimum 11h uninterrupted rest between work days
  * - Special rules for on-call deployments
- * - Cross-midnight shift handling
  */
 export const RestRuleSchema = PolicyRuleMetaSchema.extend({
   type: z.literal('REST_RULE'),
   minRestHours: z.number().positive(),
-  crossMidnightHandling: z.enum(['SPLIT_AT_MIDNIGHT', 'CONTINUE_INTO_NEXT_DAY']),
   onCallRestReduction: z
     .object({
       enabled: z.boolean(),
@@ -33,7 +31,6 @@ export const DEFAULT_REST_RULE: RestRule = {
   createdBy: 'system',
   type: 'REST_RULE',
   minRestHours: 11,
-  crossMidnightHandling: 'CONTINUE_INTO_NEXT_DAY',
   onCallRestReduction: {
     enabled: true,
     minRestHoursAfterDeployment: 11,

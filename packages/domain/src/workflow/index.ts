@@ -37,7 +37,7 @@ const ALLOWED_DECISIONS: Record<WorkflowStatus, WorkflowDecision[]> = {
   DRAFT: ['SUBMIT', 'CANCEL'],
   SUBMITTED: ['SUBMIT', 'DELEGATE', 'CANCEL'],
   PENDING: ['APPROVE', 'REJECT', 'ESCALATE', 'DELEGATE', 'CANCEL'],
-  ESCALATED: ['APPROVE', 'REJECT', 'DELEGATE', 'CANCEL'],
+  ESCALATED: ['APPROVE', 'REJECT', 'ESCALATE', 'DELEGATE', 'CANCEL'],
   APPROVED: [],
   REJECTED: [],
   CANCELLED: [],
@@ -61,7 +61,7 @@ function resolveNextStatus(
     }
   }
 
-  if (decision === 'ESCALATE' && currentStatus === 'PENDING') {
+  if (decision === 'ESCALATE' && (currentStatus === 'PENDING' || currentStatus === 'ESCALATED')) {
     return 'ESCALATED';
   }
 
@@ -84,7 +84,7 @@ function resolveNextStatus(
  * Approval workflow state machine: DRAFT → SUBMITTED → PENDING → APPROVED/REJECTED.
  *
  * Validates the requested decision against the allowed transitions for the
- * current status. Supports DELEGATE (keeps status), ESCALATE (PENDING → ESCALATED),
+ * current status. Supports DELEGATE (keeps status), ESCALATE (PENDING/ESCALATED → ESCALATED),
  * and CANCEL from any non-terminal state. Returns ok=false with violations
  * when a transition is not permitted.
  */
@@ -94,7 +94,9 @@ export function transitionWorkflow(input: TransitionWorkflowInput): TransitionWo
 
   if (
     !allowed.includes(input.decision) ||
-    (nextStatus === input.currentStatus && input.decision !== 'DELEGATE')
+    (nextStatus === input.currentStatus &&
+      input.decision !== 'DELEGATE' &&
+      input.decision !== 'ESCALATE')
   ) {
     return {
       ok: false,
@@ -228,7 +230,7 @@ export interface EscalationInput {
  * the configured escalation deadline (in hours).
  */
 export function shouldEscalate(input: EscalationInput): boolean {
-  if (input.currentStatus !== 'PENDING') {
+  if (input.currentStatus !== 'PENDING' && input.currentStatus !== 'ESCALATED') {
     return false;
   }
 

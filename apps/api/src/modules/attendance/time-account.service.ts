@@ -8,6 +8,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
+  AbsenceStatus,
   ClosingStatus,
   Role,
   TimeTypeCategory,
@@ -26,6 +27,7 @@ import { cursorPage, cursorWhere } from '../../persistence/queries/cursor-page.j
 import { PrismaService } from '../../persistence/prisma.service.js';
 import type { AuthenticatedIdentity } from '../../platform/auth/auth.types.js';
 import { ClosingLockHelper } from '../../platform/transactions/closing-lock.helper.js';
+import { LONG_TRANSACTION_OPTIONS } from '../../platform/transactions/transaction-options.js';
 import {
   lockClosingPeriodWrites,
   lockEmploymentPopulationWrites,
@@ -34,9 +36,10 @@ import {
 import { parseRequest } from '../../platform/http/validation/zod-validation.pipe.js';
 import { AuditHelper } from '../audit/public.js';
 import { AssignmentHelper, PersonHelper } from '../people/public.js';
+import { roundToTwo } from '@cueq/domain';
 import {
   actualHoursForInterval,
-  roundAccountHours,
+  inclusivePeriodEndToExclusive,
   targetHoursForInterval,
 } from './time-account-calculation.helper.js';
 
@@ -86,17 +89,40 @@ function accountMatchesCalculation(account: AccountRow, segment: PlannedSegment)
   );
 }
 
-function inclusivePeriodEndToExclusive(periodEnd: Date): Date {
-  if (
-    periodEnd.getUTCHours() === 23 &&
-    periodEnd.getUTCMinutes() === 59 &&
-    periodEnd.getUTCSeconds() === 59
-  ) {
-    return new Date(
-      Date.UTC(periodEnd.getUTCFullYear(), periodEnd.getUTCMonth(), periodEnd.getUTCDate() + 1),
-    );
+function planAssignmentWhere(
+  period: TimeAccountClosingPeriod,
+): Prisma.EmploymentAssignmentWhereInput {
+  return {
+    person: { role: { in: [Role.EMPLOYEE, Role.SHIFT_PLANNER] } },
+    AND: [
+      { OR: [{ employmentStartDate: null }, { employmentStartDate: { lte: period.periodEnd } }] },
+      { OR: [{ employmentEndDate: null }, { employmentEndDate: { gte: period.periodStart } }] },
+    ],
+    ...(period.organizationUnitId
+      ? {
+          terms: {
+            some: {
+              organizationUnitId: period.organizationUnitId,
+              AND: [
+                { OR: [{ effectiveFrom: null }, { effectiveFrom: { lte: period.periodEnd } }] },
+                { OR: [{ effectiveTo: null }, { effectiveTo: { gt: period.periodStart } }] },
+              ],
+            },
+          },
+        }
+      : {}),
+  };
+}
+
+function groupByAppointment<T extends { personId: string; assignmentId: string }>(rows: T[]) {
+  const grouped = new Map<string, T[]>();
+  for (const row of rows) {
+    const key = `${row.personId}|${row.assignmentId}`;
+    const list = grouped.get(key) ?? [];
+    list.push(row);
+    grouped.set(key, list);
   }
-  return new Date(periodEnd.getTime() + 1);
+  return grouped;
 }
 
 @Injectable()
@@ -130,6 +156,7 @@ export class TimeAccountService implements TimeAccountsPort {
   }
 
   async prepareClosingPeriod(actorId: string, closingPeriodId: string) {
+    // Prepare scales with the employee population; Prisma's 5 s default is too short.
     return this.prisma.$transaction(async (tx) => {
       await lockClosingPeriodWrites(tx, closingPeriodId);
       await lockEmploymentPopulationWrites(tx);
@@ -140,10 +167,13 @@ export class TimeAccountService implements TimeAccountsPort {
           'Time accounts can only be prepared while the closing period is OPEN.',
         );
       }
-      const plan = await this.buildPlan(tx, period);
+      const people = await tx.employmentAssignment.findMany({
+        where: planAssignmentWhere(period),
+        select: { personId: true },
+      });
       await lockPersonWrites(
         tx,
-        plan.segments.map((segment) => segment.personId),
+        people.map((row) => row.personId),
       );
       const current = await this.buildPlan(tx, period);
       const coverage = await this.loadCoverage(tx, period, current.segments);
@@ -189,7 +219,7 @@ export class TimeAccountService implements TimeAccountsPort {
         tx,
       );
       return { closingPeriodId, created, existing };
-    });
+    }, LONG_TRANSACTION_OPTIONS);
   }
 
   async listMissingForClosing(
@@ -403,16 +433,10 @@ export class TimeAccountService implements TimeAccountsPort {
       );
     }
     const totals = {
-      targetHours: roundAccountHours(
-        ordered.reduce((sum, segment) => sum + segment.targetHours, 0),
-      ),
-      actualHours: roundAccountHours(
-        ordered.reduce((sum, segment) => sum + segment.actualHours, 0),
-      ),
-      balance: roundAccountHours(ordered.reduce((sum, segment) => sum + segment.balance, 0)),
-      overtimeHours: roundAccountHours(
-        ordered.reduce((sum, segment) => sum + segment.overtimeHours, 0),
-      ),
+      targetHours: roundToTwo(ordered.reduce((sum, segment) => sum + segment.targetHours, 0)),
+      actualHours: roundToTwo(ordered.reduce((sum, segment) => sum + segment.actualHours, 0)),
+      balance: roundToTwo(ordered.reduce((sum, segment) => sum + segment.balance, 0)),
+      overtimeHours: roundToTwo(ordered.reduce((sum, segment) => sum + segment.overtimeHours, 0)),
     };
     const original = {
       targetHours: account.targetHours.toNumber(),
@@ -506,28 +530,7 @@ export class TimeAccountService implements TimeAccountsPort {
     period: TimeAccountClosingPeriod,
   ): Promise<{ segments: PlannedSegment[] }> {
     const assignments = await tx.employmentAssignment.findMany({
-      where: {
-        person: { role: { in: [Role.EMPLOYEE, Role.SHIFT_PLANNER] } },
-        AND: [
-          {
-            OR: [{ employmentStartDate: null }, { employmentStartDate: { lte: period.periodEnd } }],
-          },
-          { OR: [{ employmentEndDate: null }, { employmentEndDate: { gte: period.periodStart } }] },
-        ],
-        ...(period.organizationUnitId
-          ? {
-              terms: {
-                some: {
-                  organizationUnitId: period.organizationUnitId,
-                  AND: [
-                    { OR: [{ effectiveFrom: null }, { effectiveFrom: { lte: period.periodEnd } }] },
-                    { OR: [{ effectiveTo: null }, { effectiveTo: { gt: period.periodStart } }] },
-                  ],
-                },
-              },
-            }
-          : {}),
-      },
+      where: planAssignmentWhere(period),
       include: {
         terms: {
           where: {
@@ -542,9 +545,8 @@ export class TimeAccountService implements TimeAccountsPort {
       },
       orderBy: [{ personId: 'asc' }, { id: 'asc' }],
     });
-    const segments: PlannedSegment[] = [];
     const periodEndExclusive = inclusivePeriodEndToExclusive(period.periodEnd);
-    for (const assignment of assignments) {
+    const planned = assignments.map((assignment) => {
       const employmentStart = assignment.employmentStartDate ?? period.periodStart;
       const employmentEnd = assignment.employmentEndDate
         ? new Date(assignment.employmentEndDate.getTime() + 86_400_000)
@@ -580,16 +582,38 @@ export class TimeAccountService implements TimeAccountsPort {
           'Appointment terms do not continuously cover the closing period.',
         );
       }
-      const bookings = await tx.booking.findMany({
+      return { assignment, termSegments };
+    });
+    if (!planned.length) return { segments: [] };
+    const assignmentIds = planned.map(({ assignment }) => assignment.id);
+    const [bookings, absences] = await Promise.all([
+      tx.booking.findMany({
         where: {
-          personId: assignment.personId,
-          assignmentId: assignment.id,
+          assignmentId: { in: assignmentIds },
           endTime: { not: null, gt: period.periodStart },
           startTime: { lt: periodEndExclusive },
           timeType: { category: { in: [TimeTypeCategory.WORK, TimeTypeCategory.DEPLOYMENT] } },
         },
-        select: { startTime: true, endTime: true },
-      });
+        select: { personId: true, assignmentId: true, startTime: true, endTime: true },
+      }),
+      tx.absence.findMany({
+        where: {
+          assignmentId: { in: assignmentIds },
+          status: AbsenceStatus.APPROVED,
+          startDate: { lt: periodEndExclusive },
+          // Absence dates are UTC midnights; a day of slack keeps a partial first day.
+          endDate: { gte: new Date(period.periodStart.getTime() - 86_400_000) },
+        },
+        select: { personId: true, assignmentId: true, startDate: true, endDate: true },
+      }),
+    ]);
+    const bookingsByAppointment = groupByAppointment(bookings);
+    const absencesByAppointment = groupByAppointment(absences);
+    const segments: PlannedSegment[] = [];
+    for (const { assignment, termSegments } of planned) {
+      const key = `${assignment.personId}|${assignment.id}`;
+      const appointmentBookings = bookingsByAppointment.get(key) ?? [];
+      const appointmentAbsences = absencesByAppointment.get(key) ?? [];
       for (const { term, start, end: calculationEnd } of termSegments) {
         if (period.organizationUnitId && term.organizationUnitId !== period.organizationUnitId) {
           continue;
@@ -598,8 +622,13 @@ export class TimeAccountService implements TimeAccountsPort {
           calculationEnd.getTime() === periodEndExclusive.getTime()
             ? period.periodEnd
             : calculationEnd;
-        const targetHours = targetHoursForInterval(term, start, calculationEnd);
-        const actualHours = actualHoursForInterval(bookings, start, calculationEnd);
+        const targetHours = targetHoursForInterval(
+          term,
+          start,
+          calculationEnd,
+          appointmentAbsences,
+        );
+        const actualHours = actualHoursForInterval(appointmentBookings, start, calculationEnd);
         segments.push({
           personId: assignment.personId,
           assignmentId: assignment.id,
@@ -608,7 +637,7 @@ export class TimeAccountService implements TimeAccountsPort {
           calculationEnd,
           targetHours,
           actualHours,
-          balance: roundAccountHours(actualHours - targetHours),
+          balance: roundToTwo(actualHours - targetHours),
         });
       }
     }

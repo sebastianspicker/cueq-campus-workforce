@@ -6,6 +6,7 @@ import { PrismaService } from '../../persistence/prisma.service.js';
 import { AuditHelper, EventOutboxHelper } from '../audit/public.js';
 import { ClosingExportDownloadHelper } from './closing-export-download.helper.js';
 import { runClosingExportLifecycle } from './closing-export-lifecycle.js';
+import { LONG_TRANSACTION_OPTIONS } from '../../platform/transactions/transaction-options.js';
 import { HR_LIKE_ROLES, PersonHelper, AssignmentHelper } from '../people/public.js';
 import { TIME_ACCOUNTS_PORT, type TimeAccountsPort } from '../attendance/public.js';
 
@@ -32,13 +33,15 @@ export class ClosingExportHelper {
     const format = ClosingExportRequestSchema.parse(payload ?? {}).format ?? 'CSV_V2';
     const actor = await this.personHelper.personForUser(user);
 
-    return this.prisma.$transaction((tx) =>
-      runClosingExportLifecycle(tx, closingPeriodId, format, actor, {
-        assignmentHelper: this.assignmentHelper,
-        auditHelper: this.auditHelper,
-        eventOutboxHelper: this.eventOutboxHelper,
-        timeAccounts: this.timeAccounts,
-      }),
+    return this.prisma.$transaction(
+      (tx) =>
+        runClosingExportLifecycle(tx, closingPeriodId, format, actor, {
+          assignmentHelper: this.assignmentHelper,
+          auditHelper: this.auditHelper,
+          eventOutboxHelper: this.eventOutboxHelper,
+          timeAccounts: this.timeAccounts,
+        }),
+      LONG_TRANSACTION_OPTIONS,
     );
   }
 

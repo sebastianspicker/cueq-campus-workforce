@@ -1,5 +1,6 @@
 /** Deterministic account arithmetic from explicit appointment schedule snapshots. */
 import { ConflictException } from '@nestjs/common';
+import { roundToTwo } from '@cueq/domain';
 
 type ScheduleTerm = {
   weeklyHours: { toNumber(): number } | number | null;
@@ -10,6 +11,8 @@ type ScheduleTerm = {
 };
 
 type CompletedBooking = { startTime: Date; endTime: Date | null };
+/** An approved absence with inclusive date-only bounds stored at UTC midnight. */
+type AbsenceDays = { startDate: Date; endDate: Date };
 
 function numberValue(value: { toNumber(): number } | number | null): number | null {
   return value === null ? null : typeof value === 'number' ? value : value.toNumber();
@@ -68,11 +71,35 @@ function allowsUtcDayFraction(term: ScheduleTerm): boolean {
   );
 }
 
-export function roundAccountHours(value: number): number {
-  return Number(value.toFixed(2));
+function coversDay(absences: AbsenceDays[], isoDate: string): boolean {
+  return absences.some(
+    (absence) =>
+      absence.startDate.toISOString().slice(0, 10) <= isoDate &&
+      isoDate <= absence.endDate.toISOString().slice(0, 10),
+  );
 }
 
-export function targetHoursForInterval(term: ScheduleTerm, from: Date, toExclusive: Date): number {
+/** Converts a stored inclusive period end (23:59:59 or a plain instant) to an exclusive bound. */
+export function inclusivePeriodEndToExclusive(periodEnd: Date): Date {
+  if (
+    periodEnd.getUTCHours() === 23 &&
+    periodEnd.getUTCMinutes() === 59 &&
+    periodEnd.getUTCSeconds() === 59
+  ) {
+    return new Date(
+      Date.UTC(periodEnd.getUTCFullYear(), periodEnd.getUTCMonth(), periodEnd.getUTCDate() + 1),
+    );
+  }
+  return new Date(periodEnd.getTime() + 1);
+}
+
+/** Target hours; working days covered by an approved absence carry no target (D-1). */
+export function targetHoursForInterval(
+  term: ScheduleTerm,
+  from: Date,
+  toExclusive: Date,
+  absences: AbsenceDays[] = [],
+): number {
   if ((!isUtcDayBoundary(from) || !isUtcDayBoundary(toExclusive)) && !allowsUtcDayFraction(term)) {
     throw new ConflictException({
       code: 'TIME_ACCOUNT_PARTIAL_DAY_POLICY_REQUIRED',
@@ -86,17 +113,25 @@ export function targetHoursForInterval(term: ScheduleTerm, from: Date, toExclusi
     const nextDay = new Date(day.getTime() + 86_400_000);
     const isoWeekday = day.getUTCDay() === 0 ? 7 : day.getUTCDay();
     const isoDate = day.toISOString().slice(0, 10);
-    if (workingDays.includes(isoWeekday) && !holidays.has(isoDate)) {
+    if (
+      workingDays.includes(isoWeekday) &&
+      !holidays.has(isoDate) &&
+      !coversDay(absences, isoDate)
+    ) {
       const coveredFrom = Math.max(from.getTime(), day.getTime());
       const coveredTo = Math.min(toExclusive.getTime(), nextDay.getTime());
       target += hoursPerWorkingDay * ((coveredTo - coveredFrom) / 86_400_000);
     }
     day.setTime(nextDay.getTime());
   }
-  return roundAccountHours(target);
+  return roundToTwo(target);
 }
 
-export function targetHoursForBerlinDay(term: ScheduleTerm, instant: Date): number {
+export function targetHoursForBerlinDay(
+  term: ScheduleTerm,
+  instant: Date,
+  absences: AbsenceDays[] = [],
+): number {
   const { workingDays, holidays, hoursPerWorkingDay } = scheduleHours(term);
   const parts = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Europe/Berlin',
@@ -117,8 +152,11 @@ export function targetHoursForBerlinDay(term: ScheduleTerm, instant: Date): numb
     ['Sat', 6],
     ['Sun', 7],
   ]).get(part('weekday'));
-  return isoWeekday && workingDays.includes(isoWeekday) && !holidays.has(isoDate)
-    ? roundAccountHours(hoursPerWorkingDay)
+  return isoWeekday &&
+    workingDays.includes(isoWeekday) &&
+    !holidays.has(isoDate) &&
+    !coversDay(absences, isoDate)
+    ? roundToTwo(hoursPerWorkingDay)
     : 0;
 }
 
@@ -133,5 +171,5 @@ export function actualHoursForInterval(
     const end = Math.min(toExclusive.getTime(), booking.endTime.getTime());
     return sum + Math.max(0, end - start);
   }, 0);
-  return roundAccountHours(milliseconds / 3_600_000);
+  return roundToTwo(milliseconds / 3_600_000);
 }

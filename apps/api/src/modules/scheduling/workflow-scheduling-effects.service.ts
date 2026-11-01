@@ -9,6 +9,7 @@ import type {
 } from '../../application/ports/workflow-side-effects.port.js';
 import { AuditHelper } from '../audit/public.js';
 import { AssignmentHelper } from '../people/public.js';
+import { assertPersonAvailableForShift } from './roster-availability.helper.js';
 
 @Injectable()
 export class WorkflowSchedulingEffectsService implements SchedulingWorkflowEffectsPort {
@@ -107,6 +108,7 @@ export class WorkflowSchedulingEffectsService implements SchedulingWorkflowEffec
       select: { id: true },
     });
     if (overlap) throw new BadRequestException('toPersonId has an overlapping assigned shift.');
+    await assertPersonAvailableForShift(tx, request.toPersonId, shift);
 
     await tx.shiftAssignment.delete({ where: { id: fromAssignment.id } });
     await tx.shiftAssignment.create({

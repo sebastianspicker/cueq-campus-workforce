@@ -71,7 +71,6 @@ export async function writeAbsenceCancellation(
     },
     data: {
       status: WorkflowStatus.CANCELLED,
-      approverId: actorId,
       decisionReason: 'absence cancelled by requester',
       decidedAt: new Date(),
     },
@@ -83,7 +82,7 @@ export async function writeAbsenceCancellation(
       entityType: 'Absence',
       entityId: current.id,
       before: { status: current.status },
-      after: { status: cancelled.status },
+      after: { status: cancelled.status, cancelledBy: actorId },
     },
     tx,
   );

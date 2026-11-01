@@ -21,7 +21,7 @@ import { AuditHelper } from '../audit/public.js';
 import { WorkflowRuntimeService } from './workflow-runtime.service.js';
 import {
   lockPersonWrites,
-  lockPolicyWrites,
+  lockPolicyReadsShared,
   lockRosterWrites,
 } from '../../platform/transactions/transaction-lock.helper.js';
 import { WORKFLOW_ROUTING_LOCK_SCOPE } from './workflow-assignment.helper.js';
@@ -99,7 +99,7 @@ export class WorkflowCreationHelper {
     const parsed = BookingCorrectionSchema.parse(payload);
 
     const { workflow, assignment } = await this.prisma.$transaction(async (tx) => {
-      await lockPolicyWrites(tx, WORKFLOW_ROUTING_LOCK_SCOPE);
+      await lockPolicyReadsShared(tx, WORKFLOW_ROUTING_LOCK_SCOPE);
       const routingBooking = await tx.booking.findUnique({
         where: { id: parsed.bookingId },
         select: { personId: true, assignmentId: true, startTime: true, endTime: true },
@@ -191,7 +191,7 @@ export class WorkflowCreationHelper {
     assertCanActForPerson(user, requester.id, parsed.fromPersonId);
 
     const workflow = await this.prisma.$transaction(async (tx) => {
-      await lockPolicyWrites(tx, WORKFLOW_ROUTING_LOCK_SCOPE);
+      await lockPolicyReadsShared(tx, WORKFLOW_ROUTING_LOCK_SCOPE);
       const routingShift = await tx.shift.findUnique({
         where: { id: parsed.shiftId },
         select: { rosterId: true },
@@ -303,7 +303,7 @@ export class WorkflowCreationHelper {
     }
 
     const workflow = await this.prisma.$transaction(async (tx) => {
-      await lockPolicyWrites(tx, WORKFLOW_ROUTING_LOCK_SCOPE);
+      await lockPolicyReadsShared(tx, WORKFLOW_ROUTING_LOCK_SCOPE);
       await lockPersonWrites(tx, [parsed.personId]);
       const resolved = await this.assignmentHelper.resolveInterval(
         parsed.personId,

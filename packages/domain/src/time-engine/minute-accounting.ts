@@ -4,6 +4,7 @@ import { isWithinWindow, localMinuteInfo, selectSurchargeCategory } from './surc
 import type { TimeRuleInterval } from './types.js';
 
 const MINUTE_MS = 60_000;
+const HOUR_MS = 3_600_000;
 
 export type DailyTotals = { workMinutes: number; pauseMinutes: number };
 type SurchargeCategoryConfig = SurchargeRule['categories'][number];
@@ -29,15 +30,48 @@ function surchargeCategoryForMinute(
   return selectSurchargeCategory(matches, categoryConfigByCategory);
 }
 
+/** Local wall-clock minus UTC, in ms, for the minute containing `timestamp`. */
+function utcOffsetMs(timestamp: number, formatter: Intl.DateTimeFormat): number {
+  const local = localMinuteInfo(timestamp, formatter);
+  return (
+    Date.parse(`${local.isoDate}T00:00:00Z`) +
+    local.localMinuteOfDay * MINUTE_MS -
+    Math.floor(timestamp / MINUTE_MS) * MINUTE_MS
+  );
+}
+
+/**
+ * Projects every started minute through the formatter's time zone. Intl is called twice per UTC
+ * hour: when the offset is equal at both ends of the hour it holds for the whole hour, so the
+ * local minute is plain arithmetic; an hour containing a transition falls back to Intl per minute.
+ */
 function forEachStartedMinute(
   intervals: TimeRuleInterval[],
   formatter: Intl.DateTimeFormat,
   visit: (localMinute: ReturnType<typeof localMinuteInfo>) => void,
 ): void {
+  let cachedHour = Number.NaN;
+  let cachedOffset: number | null = null;
   for (const interval of intervals) {
     const endMs = new Date(interval.end).getTime();
     for (let cursor = new Date(interval.start).getTime(); cursor < endMs; cursor += MINUTE_MS) {
-      visit(localMinuteInfo(cursor, formatter));
+      const hour = Math.floor(cursor / HOUR_MS);
+      if (hour !== cachedHour) {
+        cachedHour = hour;
+        const first = utcOffsetMs(hour * HOUR_MS, formatter);
+        const last = utcOffsetMs(hour * HOUR_MS + HOUR_MS - MINUTE_MS, formatter);
+        cachedOffset = first === last ? first : null;
+      }
+      if (cachedOffset === null) {
+        visit(localMinuteInfo(cursor, formatter));
+        continue;
+      }
+      const local = new Date(Math.floor(cursor / MINUTE_MS) * MINUTE_MS + cachedOffset);
+      visit({
+        isoDate: local.toISOString().slice(0, 10),
+        weekday: local.getUTCDay(),
+        localMinuteOfDay: local.getUTCHours() * 60 + local.getUTCMinutes(),
+      });
     }
   }
 }

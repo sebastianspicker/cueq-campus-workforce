@@ -62,6 +62,15 @@ make generate
 make openapi-check
 ```
 
+Before applying `20261101120000_closing_period_global_unique` to an existing
+database, check for duplicate global closing periods and merge or remove them,
+or the migration's unique index fails:
+
+```sql
+SELECT "periodStart", COUNT(*) FROM closing_periods
+WHERE "organizationUnitId" IS NULL GROUP BY 1 HAVING COUNT(*) > 1;
+```
+
 Do not replace migration review with `make db-push`. The following commands load
 or replace the selected synthetic dataset; they are not schema migrations:
 
@@ -105,18 +114,17 @@ alert delivery.
 Terminal heartbeat and batch endpoints require `TERMINAL_GATEWAY_TOKEN`. HR
 import endpoints require `HR_IMPORT_TOKEN`. Production has no fallback values.
 
-The database package includes a transactional CSV importer. Build the database
-workspace first, then run it against the intended database:
+HR master data is imported through the API. The import validates the whole file
+before writing, takes an advisory lock, and records an `HrImportRun`:
 
 ```bash
-./scripts/pnpm.sh --filter @cueq/database build
-node scripts/hr-import.mjs --file /absolute/path/to/synthetic-people.csv
+curl -X POST http://localhost:3001/v1/hr/import-runs \
+  -H 'x-integration-token: <HR_IMPORT_TOKEN>' -H 'content-type: application/json' \
+  -d '{"source":"FILE","sourceFile":"people.csv","csv":"externalId,firstName,lastName,email\nE1,Ada,Lovelace,ada@example.test"}'
 ```
 
-`--source-file <label>` changes the source label recorded with the import.
-Relative input paths resolve from `packages/database`, where the wrapper runs.
-The command validates the whole file before writing, takes an advisory lock, and
-records an `HrImportRun`.
+Columns absent from the CSV header leave the stored role, unit and work-time
+model unchanged.
 
 Set `HR_PROVIDER_MODE=http` to use the configured master-data service through the
 API. The operator remains responsible for provider acceptance, scheduling, and

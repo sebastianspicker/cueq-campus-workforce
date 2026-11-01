@@ -142,13 +142,14 @@ size is 50 and the maximum is 100. Pass a non-null `nextCursor` back as `cursor`
 invalid cursors return HTTP 400. Endpoint-specific filters and interval rules are
 in the generated OpenAPI document.
 
-The legacy HR import CLI uses the compiled database workspace. After Prisma
-generation, build that workspace before running the importer:
+HR master data is imported through the API with `HR_IMPORT_TOKEN`:
 
 ```bash
-./scripts/pnpm.sh --filter @cueq/database build
-node scripts/hr-import.mjs --file /absolute/path/to/synthetic-people.csv
+curl -X POST http://localhost:3001/v1/hr/import-runs \
+  -H 'x-integration-token: <HR_IMPORT_TOKEN>' -H 'content-type: application/json' \
+  -d '{"source":"FILE","sourceFile":"people.csv","csv":"externalId,firstName,lastName,email\nE1,Ada,Lovelace,ada@example.test"}'
 ```
 
-The importer preserves existing appointment terms and personnel-owned fields.
+The importer preserves existing appointment terms and personnel-owned fields, and
+keeps role, unit and work-time model for columns absent from the CSV header.
 Employment changes require explicit dated reconciliation.

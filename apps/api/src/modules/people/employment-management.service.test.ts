@@ -77,4 +77,21 @@ describe('term changes after explicit account splitting', () => {
     await expect(f.service.appendTerm(id, id, payload)).rejects.toThrow('Split or reconcile');
     expect(f.tx.employmentTerm.update).not.toHaveBeenCalled();
   });
+  it('rejects boundaries that are not UTC midnight', async () => {
+    const f = fixture(false);
+    const berlinMidnight = { ...payload, effectiveFrom: '2099-01-31T22:00:00.000Z' };
+    await expect(f.service.appendTerm(id, id, berlinMidnight)).rejects.toThrow(
+      'Employment dates must be calendar dates (UTC midnight).',
+    );
+    expect(f.tx.employmentTerm.create).not.toHaveBeenCalled();
+  });
+  it('allows a day-fraction boundary for UTC_DAY_FRACTION terms', async () => {
+    const f = fixture(false);
+    await f.service.appendTerm(id, id, {
+      ...payload,
+      effectiveFrom: '2099-02-01T12:00:00.000Z',
+      policyReferences: { timeAccountTargetProration: 'UTC_DAY_FRACTION' },
+    });
+    expect(f.tx.employmentTerm.create).toHaveBeenCalledOnce();
+  });
 });

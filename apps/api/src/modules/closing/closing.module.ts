@@ -9,6 +9,7 @@ import { ClosingChecklistHelper } from './closing-checklist.helper.js';
 import { ClosingCorrectionHelper } from './closing-correction.helper.js';
 import { ClosingCutoffService } from './closing-cutoff.service.js';
 import { ClosingDomainService } from './closing-domain.service.js';
+import { ClosingPeriodCreateService } from './closing-period-create.js';
 import { ClosingExportHelper } from './closing-export.helper.js';
 import { ClosingLifecycleHelper } from './closing-lifecycle.helper.js';
 import { ClosingController } from './closing.controller.js';
@@ -31,6 +32,7 @@ import { AttendanceModule } from '../attendance/public.js';
     ClosingDomainService,
     ClosingExportHelper,
     ClosingLifecycleHelper,
+    ClosingPeriodCreateService,
   ],
   exports: [ClosingDomainService],
 })

@@ -1,6 +1,6 @@
 /** Injectable provider for workflow policy, routing, and overdue-escalation operations. */
 import { Inject, Injectable } from '@nestjs/common';
-import type { Prisma, Role, WorkflowPolicy, WorkflowType } from '@cueq/database';
+import type { Prisma, WorkflowType } from '@cueq/database';
 import type { WorkflowPolicyUpsert } from '@cueq/contracts';
 import { PrismaService } from '../../persistence/prisma.service.js';
 import { AuditHelper } from '../audit/public.js';
@@ -15,10 +15,6 @@ export class WorkflowAssignmentHelper {
     @Inject(AuditHelper) private readonly auditHelper: AuditHelper,
   ) {}
 
-  // prettier-ignore
-  async ensurePolicy(type: WorkflowType, tx?: Prisma.TransactionClient): Promise<WorkflowPolicy> { return operations.ensureAssignmentPolicy(this.dependencies(), type, tx); }
-  // prettier-ignore
-  async firstPersonByRoles(roles: Role[], organizationUnitId?: string, excludeId?: string, db: Pick<PrismaService, 'person'> = this.prisma): Promise<string | null> { return operations.findFirstPersonByRoles(this.dependencies(), roles, organizationUnitId, excludeId, db); }
   // prettier-ignore
   async buildWorkflowAssignment(input: WorkflowAssignmentInput, tx?: Prisma.TransactionClient): Promise<WorkflowAssignmentResult> { return operations.createWorkflowAssignment(this.dependencies(), input, tx); }
   // prettier-ignore

@@ -79,6 +79,14 @@ function ruleBookingsByPerson(
   return byPerson;
 }
 
+const berlinDate = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Europe/Berlin',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+});
+
+/** Counts long gaps within one Europe/Berlin day; overnight and weekend gaps are not gaps. */
 function bookingGapCount(bookingsByPerson: Map<string, RuleBooking[]>): number {
   let gaps = 0;
   for (const entries of bookingsByPerson.values()) {
@@ -89,7 +97,8 @@ function bookingGapCount(bookingsByPerson: Map<string, RuleBooking[]>): number {
         previous &&
         current &&
         (current.startTime.getTime() - previous.endTime.getTime()) / 60000 >
-          closingBookingGapMinutes()
+          closingBookingGapMinutes() &&
+        berlinDate.format(previous.endTime) === berlinDate.format(current.startTime)
       ) {
         gaps += 1;
       }

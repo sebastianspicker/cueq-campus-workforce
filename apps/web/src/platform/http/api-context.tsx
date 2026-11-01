@@ -6,6 +6,7 @@ import { createContext, useContext, useMemo, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { createApiFetch, createApiRequest, type ApiFetch, type ApiRequest } from './api-client';
 import { describeApiError } from './api-error-message';
+import { normalizeApiBaseUrl } from './api-url-policy';
 
 const SESSION_ENDPOINT_SLOT = 'cq-api-base-url';
 const LEGACY_SESSION_TOKEN_SLOT = 'cq-token';
@@ -35,15 +36,6 @@ function writeSessionValue(key: string, value: string) {
       sessionStorage.removeItem(key);
     }
   } catch {}
-}
-
-function normalizeApiBaseUrl(value: string): string {
-  const trimmed = value.trim();
-  if (!trimmed) {
-    return DEFAULT_API_BASE_URL;
-  }
-
-  return trimmed === '/' ? DEFAULT_API_BASE_URL : trimmed.replace(/\/$/, '');
 }
 
 interface ApiContextValue {

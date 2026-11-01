@@ -6,7 +6,7 @@
   "description": "cueq NestJS API server",
   "scripts": {
     "build": "nest build",
-    "dev": "nest start --watch",
+    "dev": "NODE_ENV=${NODE_ENV:-development} nest start --watch",
     "start": "node dist/main.js",
     "start:prod": "node dist/main.js",
     "openapi:export": "node dist/commands/export-openapi.js",

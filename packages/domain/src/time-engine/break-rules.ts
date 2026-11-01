@@ -12,7 +12,7 @@ export function requiredBreakMinutes(
   shiftType?: string,
 ): number {
   const requiredByThreshold = rule.thresholds
-    .filter((threshold) => workedHours >= threshold.workedHoursMin)
+    .filter((threshold) => workedHours > threshold.workedHoursMin)
     .reduce((minutes, threshold) => Math.max(minutes, threshold.requiredBreakMinutes), 0);
 
   if (shiftType && shiftType.toUpperCase() === SHIFT_TYPE_NIGHT) {

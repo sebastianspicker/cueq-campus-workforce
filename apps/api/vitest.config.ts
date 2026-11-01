@@ -16,7 +16,6 @@ export default defineConfig({
         'src/platform/http/cors-options.ts',
         'src/platform/http/development-listen-host.ts',
         'src/platform/http/validation/**/*.ts',
-        'src/platform/auth/role-mapping.ts',
         'src/platform/auth/mock-identity-provider.adapter.ts',
         'src/modules/integrations/csv/**/*.ts',
         'src/platform/serialization/csv/**/*.ts',

@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import {
-  advanceRosterStatus,
   comparePlanVsActual,
   detectShiftOverlaps,
   evaluateMinStaffing,
@@ -275,23 +274,4 @@ describe('roster compliance and status invariants', () => {
       }),
     ]);
   });
-
-  it.each([
-    ['DRAFT', 'PUBLISH', false, 'PUBLISHED', undefined],
-    ['DRAFT', 'PUBLISH', true, 'DRAFT', 'CHECKLIST_NOT_GREEN'],
-    ['PUBLISHED', 'PUBLISH', false, 'PUBLISHED', 'INVALID_TRANSITION'],
-    ['PUBLISHED', 'CLOSE', false, 'CLOSED', undefined],
-    ['DRAFT', 'CLOSE', false, 'DRAFT', 'INVALID_TRANSITION'],
-    ['PUBLISHED', 'REVERT_TO_DRAFT', false, 'DRAFT', undefined],
-    ['CLOSED', 'REVERT_TO_DRAFT', false, 'CLOSED', 'INVALID_TRANSITION'],
-  ] as const)(
-    'transitions roster status',
-    (currentStatus, action, checklistHasErrors, nextStatus, violationCode) => {
-      const result = advanceRosterStatus({ currentStatus, action, checklistHasErrors });
-      expect(result.nextStatus).toBe(nextStatus);
-      expect(result.violations.map((violation) => violation.code)).toEqual(
-        violationCode ? [violationCode] : [],
-      );
-    },
-  );
 });

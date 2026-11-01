@@ -83,6 +83,6 @@ export class ClosingChecklistHelper {
 
   private dependencies() {
     // prettier-ignore
-    return { prisma: this.prisma, personHelper: this.personHelper, assignmentHelper: this.assignmentHelper, eventOutboxHelper: this.eventOutboxHelper, timeThresholdPolicyHelper: this.timeThresholdPolicyHelper, timeAccounts: this.timeAccounts };
+    return { prisma: this.prisma, personHelper: this.personHelper, eventOutboxHelper: this.eventOutboxHelper, timeThresholdPolicyHelper: this.timeThresholdPolicyHelper, timeAccounts: this.timeAccounts };
   }
 }

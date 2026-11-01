@@ -2,7 +2,8 @@ const CONTROL_CHARACTER_PATTERN = /[\u0000-\u001f\u007f]/u;
 const SAFE_RELATIVE_URL_PATTERN = /^\/(?!\/)[^\\\u0000-\u001f\u007f]*$/u;
 
 export function normalizeApiBaseUrl(baseUrl: string): string {
-  return (baseUrl || '/api').replace(/\/$/, '');
+  const trimmed = baseUrl.trim();
+  return !trimmed || trimmed === '/' ? '/api' : trimmed.replace(/\/$/, '');
 }
 
 export function buildApiHeaders(token: string, init?: RequestInit): Headers {

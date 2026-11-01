@@ -60,7 +60,7 @@ export class AbsencesController {
   }
 
   @Get(':id')
-  @Roles(Role.EMPLOYEE, Role.TEAM_LEAD, Role.HR, Role.ADMIN)
+  @Authenticated()
   @ApiOperation({ summary: 'Get an absence by ID' })
   @ApiOkResponse({ type: AbsenceDto })
   getById(

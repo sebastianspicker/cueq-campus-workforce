@@ -12,7 +12,7 @@ export type TimeAccountClosingPeriod = {
 
 export type TimeAccountReadClient = Pick<
   Prisma.TransactionClient,
-  '$queryRaw' | 'employmentAssignment' | 'booking' | 'timeAccount'
+  '$queryRaw' | 'employmentAssignment' | 'booking' | 'absence' | 'timeAccount'
 >;
 
 type MissingTimeAccountReason = 'NO_ACCOUNT' | 'OUTDATED_ACCOUNT' | 'INCOMPATIBLE_ACCOUNT';

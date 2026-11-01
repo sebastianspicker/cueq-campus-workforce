@@ -1,10 +1,8 @@
 /** SAML bridge adapter that verifies shared-secret JWTs carrying mapped identity claims. */
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { jwtVerify } from 'jose';
-import { Role } from '@cueq/database';
 import type { IdentityProviderPort } from './identity-provider.port.js';
-import type { AuthenticatedIdentity } from './auth.types.js';
-import { parseRoleClaim } from './role-mapping.js';
+import type { VerifiedIdentity } from './auth.types.js';
 
 /** Converts verified bridge-JWT claims into the shared identity contract. */
 @Injectable()
@@ -13,7 +11,7 @@ export class SamlIdentityProviderAdapter implements IdentityProviderPort {
   private readonly audience = process.env.SAML_AUDIENCE;
   private readonly sharedSecret = process.env.SAML_JWT_SECRET;
 
-  async verifyAccessToken(token: string): Promise<AuthenticatedIdentity> {
+  async verifyAccessToken(token: string): Promise<VerifiedIdentity> {
     if (!this.issuer || !this.audience || !this.sharedSecret) {
       throw new UnauthorizedException('SAML provider is not configured.');
     }
@@ -32,17 +30,7 @@ export class SamlIdentityProviderAdapter implements IdentityProviderPort {
         throw new UnauthorizedException('Missing required SAML identity claims.');
       }
 
-      const mappedRole = parseRoleClaim(claims.role) ?? Role.EMPLOYEE;
-
-      return {
-        subject,
-        email,
-        role: mappedRole,
-        organizationUnitId: claims.organizationUnitId
-          ? String(claims.organizationUnitId)
-          : undefined,
-        claims,
-      };
+      return { subject, email, claims };
     } catch {
       throw new UnauthorizedException('SAML token validation failed.');
     }

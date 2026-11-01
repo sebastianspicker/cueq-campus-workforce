@@ -535,4 +535,25 @@ describe('calculateAssignmentLeaveLedger', () => {
       remainingDays: 26.98,
     });
   });
+
+  it('scales a single configuration by working days when the policy says WORKING_DAYS', () => {
+    const rule = leaveRule('single');
+    const input = {
+      year: 2026,
+      asOfDate: '2026-10-01',
+      workTimeModelWeeklyHours: 40,
+      annualLeaveUsage: [],
+      segments: [
+        { from: '2026-01-01', to: '2026-12-31', weeklyHours: 40, workingDays: [1, 2, 3], rule },
+      ],
+    };
+
+    expect(calculateAssignmentLeaveLedger(input).entitlementDays).toBe(30);
+    expect(
+      calculateAssignmentLeaveLedger({
+        ...input,
+        calculationPolicy: { ...calendarWeeklyPolicy, partTimeBasis: 'WORKING_DAYS' },
+      }).entitlementDays,
+    ).toBe(18);
+  });
 });

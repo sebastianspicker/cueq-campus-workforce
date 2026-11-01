@@ -62,6 +62,24 @@ describe('closing checklist appointment metrics', () => {
     expect(result.ruleViolations).toBeGreaterThan(0);
   });
 
+  it('does not count the overnight gap between two working days', () => {
+    const monday = booking('assignment-a', '2026-03-02T07:00:00.000Z', '2026-03-02T15:00:00.000Z');
+    const tuesday = booking('assignment-a', '2026-03-03T07:00:00.000Z', '2026-03-03T15:00:00.000Z');
+
+    const result = calculateClosingBookingMetrics(
+      [monday, tuesday],
+      [monday, tuesday],
+      [],
+      1,
+      'period-1',
+      periodStart,
+      periodEnd,
+      thresholds,
+    );
+
+    expect(result.bookingGaps).toBe(0);
+  });
+
   it('clips legacy oversized bookings to the closing period and flags the source record', () => {
     const oversized = booking(
       'assignment-a',

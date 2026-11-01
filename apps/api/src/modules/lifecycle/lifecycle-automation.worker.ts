@@ -52,6 +52,14 @@ function triggerBaseDate(rule: AutomationRule, assignment: AutomationAssignment)
   return rule.triggerDate;
 }
 
+function automationEventKey(
+  rule: AutomationRule,
+  assignment: AutomationAssignment,
+  baseDate: Date,
+) {
+  return `automation:${rule.id}:${assignment.id}:${lifecycleDateString(baseDate)}`;
+}
+
 @Injectable()
 export class LifecycleAutomationWorker implements OnApplicationBootstrap {
   private readonly logger = new Logger(LifecycleAutomationWorker.name);
@@ -130,7 +138,25 @@ export class LifecycleAutomationWorker implements OnApplicationBootstrap {
         createdAt: true,
       },
     });
-    for (const assignment of candidates.slice(0, AUTOMATION_BATCH_SIZE)) {
+    const page = candidates.slice(0, AUTOMATION_BATCH_SIZE);
+    // The key embeds the base date, so a changed date re-activates while an unchanged one is skipped.
+    const keys = page.flatMap((assignment) => {
+      const baseDate = triggerBaseDate(rule, assignment);
+      return baseDate ? [automationEventKey(rule, assignment, baseDate)] : [];
+    });
+    const existing = new Set(
+      keys.length
+        ? (
+            await this.prisma.lifecycleInstance.findMany({
+              where: { templateId: rule.templateId, eventKey: { in: keys } },
+              select: { eventKey: true },
+            })
+          ).map((instance) => instance.eventKey)
+        : [],
+    );
+    for (const assignment of page) {
+      const baseDate = triggerBaseDate(rule, assignment);
+      if (baseDate && existing.has(automationEventKey(rule, assignment, baseDate))) continue;
       await this.activateCandidate(rule, assignment, conditions, createdDate, today);
     }
     const last = candidates.at(Math.min(AUTOMATION_BATCH_SIZE, candidates.length) - 1);
@@ -191,7 +217,7 @@ export class LifecycleAutomationWorker implements OnApplicationBootstrap {
           templateId: rule.templateId,
           personId: assignment.personId,
           assignmentId: assignment.id,
-          eventKey: `automation:${rule.id}:${assignment.id}:${baseDateText}`,
+          eventKey: automationEventKey(rule, assignment, baseDate),
           baseDate: baseDateText,
         },
         { automationRuleId: rule.id },

@@ -11,15 +11,15 @@ file, token, credential, or encryption key.
 
 ## API and browser access
 
-| Variable                 | Default                                              | Description                                                                                             |
-| ------------------------ | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| `NODE_ENV`               | unset                                                | Selects development, test, or production behavior. Production disables mock authentication and Swagger. |
-| `DATABASE_URL`           | local scripts use PostgreSQL on `localhost:5433`     | Prisma connection URL                                                                                   |
-| `PORT`                   | `3001`                                               | API port                                                                                                |
-| `CUEQ_DEV_HOST`          | `127.0.0.1` outside production                       | Development bind address for the API and web app                                                        |
-| `CUEQ_ENV_FILE`          | `.env`                                               | Environment file read by `make dev`                                                                     |
-| `CORS_ORIGINS`           | local origins outside production; none in production | Comma-separated browser origins; `*` permits any origin                                                 |
-| `CORS_ALLOW_CREDENTIALS` | `false`                                              | Enables credentialed CORS                                                                               |
+| Variable                 | Default                                              | Description                                                                                                                                                                                              |
+| ------------------------ | ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `NODE_ENV`               | unset                                                | Only `development` and `test` enable mock authentication, Swagger and development CORS defaults; every other value, including unset, is treated as production. `make dev` sets `development` when unset. |
+| `DATABASE_URL`           | local scripts use PostgreSQL on `localhost:5433`     | Prisma connection URL                                                                                                                                                                                    |
+| `PORT`                   | `3001`                                               | API port                                                                                                                                                                                                 |
+| `CUEQ_DEV_HOST`          | `127.0.0.1` outside production                       | Development bind address for the API and web app                                                                                                                                                         |
+| `CUEQ_ENV_FILE`          | `.env`                                               | Environment file read by `make dev`                                                                                                                                                                      |
+| `CORS_ORIGINS`           | local origins outside production; none in production | Comma-separated browser origins; `*` permits any origin                                                                                                                                                  |
+| `CORS_ALLOW_CREDENTIALS` | `false`                                              | Enables credentialed CORS                                                                                                                                                                                |
 
 Changing `CUEQ_DEV_HOST` does not change CORS. A production browser deployment
 should list its exact origins. The API rejects `CORS_ORIGINS=*` together with
@@ -28,9 +28,10 @@ should list its exact origins. The API rejects `CORS_ORIGINS=*` together with
 ## Authentication
 
 Set `AUTH_PROVIDER` to `mock`, `oidc`, or `saml`. Mock authentication is rejected
-in production. If `AUTH_PROVIDER` is absent, the legacy `AUTH_MODE` setting is
-used; it accepts `mock` or `oidc` and otherwise selects OIDC when an issuer URL
-is present.
+unless `NODE_ENV` is `development` or `test`. If `AUTH_PROVIDER` is absent, the
+legacy `AUTH_MODE` setting is used; it accepts `mock` or `oidc` and otherwise
+selects OIDC when an issuer URL is present. With none of these set, the API
+defaults to mock in development and test and refuses to start elsewhere.
 
 OIDC requires:
 

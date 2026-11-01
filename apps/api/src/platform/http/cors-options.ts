@@ -1,5 +1,6 @@
 /** Builds the environment-sensitive browser-origin policy, defaulting to local development origins only. */
 import type { CorsOptions } from '@nestjs/common/interfaces/external/cors-options.interface.js';
+import { isDevelopmentOrTest } from '../runtime-environment.js';
 
 const DEFAULT_DEV_ORIGINS = new Set([
   'http://localhost:3000',
@@ -25,10 +26,6 @@ function parseOrigins(input: string | undefined): Set<string> {
   );
 }
 
-function isProductionRuntime(env: NodeJS.ProcessEnv): boolean {
-  return (env.NODE_ENV ?? '').toLowerCase() === 'production';
-}
-
 /** Returns a fail-closed CORS policy derived from the supplied runtime environment. */
 export function buildCorsOptions(env: NodeJS.ProcessEnv = process.env): CorsOptions {
   const configuredOrigins = parseOrigins(env.CORS_ORIGINS);
@@ -45,9 +42,9 @@ export function buildCorsOptions(env: NodeJS.ProcessEnv = process.env): CorsOpti
   const allowlist =
     configuredOrigins.size > 0
       ? new Set([...configuredOrigins].filter((origin) => origin !== '*'))
-      : isProductionRuntime(env)
-        ? new Set<string>()
-        : new Set(DEFAULT_DEV_ORIGINS);
+      : isDevelopmentOrTest(env)
+        ? new Set(DEFAULT_DEV_ORIGINS)
+        : new Set<string>();
 
   return {
     origin: (origin, callback) => {

@@ -1,11 +1,7 @@
 /** Shared-token verifier with timing-safe equal-length comparison and no production fallback credential. */
 import { timingSafeEqual } from 'node:crypto';
 import { ForbiddenException, InternalServerErrorException } from '@nestjs/common';
-
-function isNonProductionRuntime(): boolean {
-  const runtime = (process.env.NODE_ENV ?? '').toLowerCase();
-  return runtime === 'development' || runtime === 'test';
-}
+import { isDevelopmentOrTest } from '../../../platform/runtime-environment.js';
 
 function tokenMatches(input: string, expected: string): boolean {
   const left = Buffer.from(input, 'utf8');
@@ -24,7 +20,7 @@ export function assertIntegrationToken(
   fallback: string,
 ) {
   const configured = process.env[envVar]?.trim();
-  const expected = configured || (isNonProductionRuntime() ? fallback : '');
+  const expected = configured || (isDevelopmentOrTest() ? fallback : '');
   const normalized = Array.isArray(token) ? (token.length === 1 ? token[0] : undefined) : token;
   const received = normalized?.trim();
 

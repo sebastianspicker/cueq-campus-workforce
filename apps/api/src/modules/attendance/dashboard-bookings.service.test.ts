@@ -24,11 +24,15 @@ it('returns a bounded first page with consistent Berlin-day bounds and authorita
     }));
     const list = vi.fn(async () => rows);
     const transaction = vi.fn(async (queries: Promise<unknown>[]) => Promise.all(queries));
+    const queryRaw = vi.fn(async (_sql: TemplateStringsArray, ..._values: unknown[]) => [
+      { milliseconds: 123_456 },
+    ]);
     const prisma = {
       booking: { count, findFirst, findMany: list },
       timeAccount: { findFirst: async () => null },
       timeType: { findFirst: async () => null },
-      $queryRaw: async () => [{ milliseconds: 123_456 }],
+      absence: { findMany: async () => [] },
+      $queryRaw: queryRaw,
       $transaction: transaction,
     };
     const people = { personForUser: async () => ({ id: 'person', workTimeModelId: null }) };
@@ -93,6 +97,64 @@ it('returns a bounded first page with consistent Berlin-day bounds and authorita
     expect(transaction).toHaveBeenCalledWith(expect.any(Array), {
       isolationLevel: 'RepeatableRead',
     });
+    // Worked time counts only work categories and clips bookings to the Berlin day.
+    const sql = queryRaw.mock.calls[0]?.[0].join('?') ?? '';
+    expect(sql).toContain(`tt."category" IN ('WORK', 'DEPLOYMENT')`);
+    expect(sql).toContain('LEAST(COALESCE(b."endTime", ?), ?) - GREATEST(b."startTime", ?)');
+    expect(sql).toContain('b."startTime" < ? AND COALESCE(b."endTime", ?) > ?');
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+it('shows no target on a working day covered by an approved absence', async () => {
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date('2026-03-30T12:00:00Z'));
+  try {
+    const absenceFindMany = vi.fn(async () => [
+      {
+        startDate: new Date('2026-03-30T00:00:00.000Z'),
+        endDate: new Date('2026-04-03T00:00:00.000Z'),
+      },
+    ]);
+    const prisma = {
+      booking: { count: async () => 0, findFirst: async () => null, findMany: async () => [] },
+      timeAccount: { findFirst: async () => null },
+      timeType: { findFirst: async () => null },
+      absence: { findMany: absenceFindMany },
+      $queryRaw: async () => [{ milliseconds: 0 }],
+      $transaction: async (queries: Promise<unknown>[]) => Promise.all(queries),
+    };
+    const people = { personForUser: async () => ({ id: 'person' }) };
+    const assignments = {
+      resolveInterval: async () => ({
+        assignment: { id: 'assignment' },
+        term: {
+          dailyTargetHours: 8,
+          weeklyHours: 40,
+          workingDays: [1, 2, 3, 4, 5],
+          holidayCalendar: { holidayDates: [] },
+        },
+      }),
+    };
+    const service = new DashboardBookingsService(
+      prisma as never,
+      people as never,
+      assignments as never,
+    );
+
+    await expect(service.dashboard({} as never)).resolves.toMatchObject({ todayTargetHours: 0 });
+    expect(absenceFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          personId: 'person',
+          assignmentId: 'assignment',
+          status: 'APPROVED',
+          startDate: { lte: new Date('2026-03-30T00:00:00.000Z') },
+          endDate: { gte: new Date('2026-03-30T00:00:00.000Z') },
+        }),
+      }),
+    );
   } finally {
     vi.useRealTimers();
   }

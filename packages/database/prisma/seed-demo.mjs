@@ -2,6 +2,7 @@
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { PrismaClient } from '@prisma/client';
+import { assertDisposableDatabase } from './seed-baseline/disposable-database.mjs';
 import { FIXED_SEED_TIMESTAMP, runSeedLayer, stableCuid } from './seed-helpers.mjs';
 
 const prisma = new PrismaClient();
@@ -22,6 +23,7 @@ const IDs = {
 
 /** Deletes demo additions before delegating to the destructive baseline reset. */
 async function reset() {
+  assertDisposableDatabase(process.env.DATABASE_URL);
   await prisma.terminalHeartbeat.deleteMany();
   await prisma.terminalDevice.deleteMany();
   await prisma.hrImportRun.deleteMany();
@@ -30,6 +32,7 @@ async function reset() {
 
 /** Rebuilds the baseline dependency layer, then appends demo seed evidence. */
 async function seed() {
+  assertDisposableDatabase(process.env.DATABASE_URL);
   runBaseline('seed');
 
   const terminal = await prisma.terminalDevice.upsert({

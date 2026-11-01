@@ -3,6 +3,9 @@ import { BadRequestException } from '@nestjs/common';
 import { AbsenceStatus, Role } from '@cueq/database';
 import { TeamCalendarQuerySchema } from '@cueq/contracts';
 
+/** The web calendar requests one month at a time; a quarter leaves headroom. */
+const MAX_TEAM_CALENDAR_DAYS = 93;
+
 export function teamCalendarDateRange(
   start?: string,
   end?: string,
@@ -22,11 +25,14 @@ export function teamCalendarDateRange(
   if (startDate > endDate) {
     throw new BadRequestException('start must be on or before end.');
   }
+  if (endDate.getTime() - startDate.getTime() > MAX_TEAM_CALENDAR_DAYS * 86_400_000) {
+    throw new BadRequestException(`Calendar range must not exceed ${MAX_TEAM_CALENDAR_DAYS} days.`);
+  }
 
   return { startDate, endDate };
 }
 
-export function mayReadAbsenceDetails(role: Role): boolean {
+function mayReadAbsenceDetails(role: Role): boolean {
   return role === Role.TEAM_LEAD || role === Role.HR;
 }
 
@@ -69,7 +75,7 @@ export function toTeamCalendarEntry(
     note: string | null;
     person: { firstName: string; lastName: string };
   },
-  canReadAbsenceDetails: boolean,
+  role: Role,
 ) {
   return {
     id: absence.id,
@@ -80,6 +86,8 @@ export function toTeamCalendarEntry(
     endDate: absence.endDate.toISOString().slice(0, 10),
     status: absence.status,
     visibilityStatus: 'ABSENT' as const,
-    ...(canReadAbsenceDetails ? { type: absence.type, note: absence.note } : {}),
+    ...(mayReadAbsenceDetails(role) ? { type: absence.type } : {}),
+    // Notes can hold health data: HR only; team leads get the type.
+    ...(role === Role.HR ? { note: absence.note } : {}),
   };
 }

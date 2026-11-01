@@ -1,4 +1,4 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, ConflictException } from '@nestjs/common';
 import { WorkflowType } from '@cueq/database';
 import { describe, expect, it, vi } from 'vitest';
 import type {
@@ -54,6 +54,7 @@ describe('WorkflowSchedulingEffectsService', () => {
     const audit = { appendAudit: vi.fn().mockResolvedValue(undefined) };
     const tx = {
       shift: { findUnique: vi.fn().mockResolvedValue(shift()) },
+      absence: { findMany: vi.fn().mockResolvedValue([]) },
       shiftAssignment: {
         findFirst: vi.fn().mockResolvedValue(null),
         delete: vi.fn().mockResolvedValue(undefined),
@@ -119,6 +120,47 @@ describe('WorkflowSchedulingEffectsService', () => {
         tx: tx as unknown as WorkflowPreApprovalInput['tx'],
       }),
     ).rejects.toThrow(BadRequestException);
+    expect(tx.shiftAssignment.delete).not.toHaveBeenCalled();
+    expect(tx.shiftAssignment.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects a swap onto a person with an approved absence without writes', async () => {
+    const tx = {
+      shift: { findUnique: vi.fn().mockResolvedValue(shift()) },
+      absence: {
+        findMany: vi.fn().mockResolvedValue([
+          {
+            id: 'absence-1',
+            startDate: new Date('2026-08-21T00:00:00.000Z'),
+            endDate: new Date('2026-08-21T00:00:00.000Z'),
+          },
+        ]),
+      },
+      shiftAssignment: {
+        findFirst: vi.fn().mockResolvedValue(null),
+        delete: vi.fn(),
+        create: vi.fn(),
+      },
+    };
+    const service = new WorkflowSchedulingEffectsService(
+      { appendAudit: vi.fn() } as never,
+      {
+        resolveInterval: vi.fn().mockResolvedValue({
+          assignment: { id: ids.targetEmployment },
+          organizationUnitId: ids.unit,
+        }),
+      } as never,
+    );
+
+    await expect(
+      service.applyWorkflowEffect({
+        actorId: ids.actor,
+        action: 'APPROVE',
+        decision: decision(),
+        reason: 'Swap approved after roster review.',
+        tx: tx as unknown as WorkflowEffectInput['tx'],
+      }),
+    ).rejects.toThrow(ConflictException);
     expect(tx.shiftAssignment.delete).not.toHaveBeenCalled();
     expect(tx.shiftAssignment.create).not.toHaveBeenCalled();
   });

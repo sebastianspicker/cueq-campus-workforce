@@ -68,4 +68,21 @@ describe('project effort reporting privacy', () => {
 
     expect(projectSummaryCsv(summary)).toContain("'=cmd,'+project");
   });
+
+  it('writes negative numbers as numbers and neutralises tab-led text', () => {
+    const summary: ProjectEffortSummary = {
+      projectId,
+      code: '\tcmd',
+      name: 'over budget',
+      parentId: null,
+      ...query,
+      suppression: { suppressed: false, minGroupSize: 5, population: 5 },
+      totals: { budgetHours: 10, recordedHours: 13.5, varianceHours: -3.5 },
+    };
+
+    const csv = projectSummaryCsv(summary);
+    expect(csv).toContain(',-3.5');
+    expect(csv).not.toContain("'-3.5");
+    expect(csv).toContain("'\tcmd");
+  });
 });

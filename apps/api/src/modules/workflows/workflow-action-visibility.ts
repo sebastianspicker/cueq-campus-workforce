@@ -33,7 +33,9 @@ export function availableWorkflowActions(
   const actions = new Set<WorkflowAction>();
   const isRequester = workflow.requesterId === actor.id;
   const mayApprove =
-    workflow.approverId === actor.id && isRoleAllowedForType(actor.role, workflow.type);
+    !isRequester &&
+    workflow.approverId === actor.id &&
+    isRoleAllowedForType(actor.role, workflow.type);
   const isPending =
     workflow.status === WorkflowStatus.PENDING || workflow.status === WorkflowStatus.ESCALATED;
 
@@ -57,7 +59,6 @@ export function mayViewWorkflowReason(workflow: WorkflowInstance, actor: Workflo
   return (
     workflow.requesterId === actor.id ||
     workflow.approverId === actor.id ||
-    actor.role === Role.TEAM_LEAD ||
     actor.role === Role.HR ||
     actor.role === Role.ADMIN
   );

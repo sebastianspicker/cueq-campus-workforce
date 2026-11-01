@@ -11,15 +11,15 @@ import {
   type ClosingDb,
 } from './closing-checklist-metrics.js';
 import type { EventOutboxHelper } from '../audit/public.js';
-import { CLOSING_READ_ROLES, type AssignmentHelper, type PersonHelper } from '../people/public.js';
+import { CLOSING_READ_ROLES, type PersonHelper } from '../people/public.js';
 import type { TimeThresholdPolicyHelper } from '../policy/public.js';
 import type { TimeAccountsPort } from '../attendance/public.js';
 import { lockClosingPeriodWrites } from '../../platform/transactions/transaction-lock.helper.js';
+import { LONG_TRANSACTION_OPTIONS } from '../../platform/transactions/transaction-options.js';
 
 export type ClosingChecklistDependencies = {
   prisma: PrismaService;
   personHelper: Pick<PersonHelper, 'personForUser'>;
-  assignmentHelper: Pick<AssignmentHelper, 'resolveInterval'>;
   eventOutboxHelper: Pick<EventOutboxHelper, 'enqueueDomainEvent'>;
   timeThresholdPolicyHelper: Pick<TimeThresholdPolicyHelper, 'getActiveThresholds'>;
   timeAccounts: Pick<TimeAccountsPort, 'listMissingForClosing'>;
@@ -48,7 +48,7 @@ export async function executeClosingChecklist(
     return dependencies.prisma.$transaction(async (tx) => {
       await lockClosingPeriodWrites(tx, closingPeriodId);
       return executeClosingChecklist(dependencies, user, closingPeriodId, tx, emitViolationEvent);
-    });
+    }, LONG_TRANSACTION_OPTIONS);
   }
 
   const period = await findClosingPeriod(db, closingPeriodId);
@@ -57,7 +57,6 @@ export async function executeClosingChecklist(
     db,
     period,
     () => dependencies.timeThresholdPolicyHelper.getActiveThresholds(),
-    dependencies.assignmentHelper,
     dependencies.timeAccounts,
   );
   const checklist = generateClosingChecklist(metrics, findings);

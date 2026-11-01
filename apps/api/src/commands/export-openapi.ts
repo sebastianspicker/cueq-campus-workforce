@@ -6,6 +6,8 @@ import { AppModule } from '../app.module.js';
 import { buildOpenApiDocument } from '../openapi.js';
 
 async function exportOpenApi(outputPath?: string): Promise<void> {
+  // Document generation never serves requests; it only needs the mock provider to construct the app.
+  process.env.NODE_ENV ??= 'development';
   const app = await NestFactory.create(AppModule, { logger: false });
   try {
     const document = buildOpenApiDocument(app);

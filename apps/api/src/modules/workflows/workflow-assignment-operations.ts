@@ -1,20 +1,15 @@
 /** Composes workflow policy, routing, and escalation operations for the injectable provider. */
-import type { Prisma, WorkflowPolicy } from '@cueq/database';
-import type { Role, WorkflowType } from '@cueq/database';
+import type { Prisma, WorkflowType } from '@cueq/database';
 import type { WorkflowPolicyUpsert } from '@cueq/contracts';
 import type { PrismaService } from '../../persistence/prisma.service.js';
 import type { AuditHelper } from '../audit/public.js';
 import {
-  ensureWorkflowPolicy,
   getActiveWorkflowPolicy,
   listActiveWorkflowPolicies,
   listWorkflowPolicyHistory,
   upsertWorkflowPolicy,
 } from './workflow-assignment-policy.js';
-import {
-  buildWorkflowAssignmentInTransaction,
-  firstPersonByRoles,
-} from './workflow-assignment-routing.js';
+import { buildWorkflowAssignmentInTransaction } from './workflow-assignment-routing.js';
 import { escalateOverdueWorkflows } from './workflow-assignment-escalation.js';
 import type { WorkflowAssignmentInput, WorkflowAssignmentResult } from './workflow-contracts.js';
 
@@ -22,24 +17,6 @@ export type WorkflowAssignmentDependencies = {
   prisma: PrismaService;
   auditHelper: Pick<AuditHelper, 'appendAudit'>;
 };
-
-export function ensureAssignmentPolicy(
-  { prisma }: WorkflowAssignmentDependencies,
-  type: WorkflowType,
-  tx?: Prisma.TransactionClient,
-): Promise<WorkflowPolicy> {
-  return ensureWorkflowPolicy(prisma, type, tx);
-}
-
-export function findFirstPersonByRoles(
-  { prisma }: WorkflowAssignmentDependencies,
-  roles: Role[],
-  organizationUnitId?: string,
-  excludeId?: string,
-  db: Pick<PrismaService, 'person'> = prisma,
-): Promise<string | null> {
-  return firstPersonByRoles(roles, organizationUnitId, excludeId, db);
-}
 
 export async function createWorkflowAssignment(
   { prisma }: WorkflowAssignmentDependencies,

@@ -1,14 +1,11 @@
 /** Selects the configured identity-provider adapter and forbids mock authentication in production. */
 import { Inject, Injectable } from '@nestjs/common';
-import type { AuthenticatedIdentity } from './auth.types.js';
+import type { VerifiedIdentity } from './auth.types.js';
 import type { IdentityProviderPort } from './identity-provider.port.js';
 import { MockIdentityProviderAdapter } from './mock-identity-provider.adapter.js';
 import { OidcIdentityProviderAdapter } from './oidc-identity-provider.adapter.js';
 import { SamlIdentityProviderAdapter } from './saml-identity-provider.adapter.js';
-
-function isProductionRuntime(): boolean {
-  return (process.env.NODE_ENV ?? '').toLowerCase() === 'production';
-}
+import { isDevelopmentOrTest } from '../runtime-environment.js';
 
 type AuthProviderKind = 'mock' | 'oidc' | 'saml';
 
@@ -38,7 +35,9 @@ function selectedAuthProviderKind(environment: NodeJS.ProcessEnv): AuthProviderK
     if (providerKind) return providerKind;
     throw new Error(`Unsupported AUTH_MODE value: ${authMode}. Expected one of: mock, oidc.`);
   }
-  return environment.OIDC_ISSUER_URL ? 'oidc' : 'mock';
+  if (environment.OIDC_ISSUER_URL) return 'oidc';
+  if (isDevelopmentOrTest(environment)) return 'mock';
+  throw new Error('AUTH_PROVIDER is required (oidc or saml) outside development and test.');
 }
 
 function identityProviderForKind(
@@ -61,9 +60,9 @@ export class AuthService {
     @Inject(SamlIdentityProviderAdapter) samlProvider: SamlIdentityProviderAdapter,
   ) {
     const providerKind = selectedAuthProviderKind(process.env);
-    if (providerKind === 'mock' && isProductionRuntime()) {
+    if (providerKind === 'mock' && !isDevelopmentOrTest()) {
       throw new Error(
-        'Insecure auth configuration: mock auth provider is disabled in production. ' +
+        'Insecure auth configuration: mock auth provider is disabled outside development and test. ' +
           'Set AUTH_PROVIDER to oidc or saml.',
       );
     }
@@ -71,7 +70,7 @@ export class AuthService {
     this.identityProvider = identityProviderForKind(providerKind, oidcProvider, samlProvider);
   }
 
-  verifyToken(token: string): Promise<AuthenticatedIdentity> {
+  verifyToken(token: string): Promise<VerifiedIdentity> {
     return this.identityProvider.verifyAccessToken(token);
   }
 }

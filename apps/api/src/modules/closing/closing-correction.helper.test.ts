@@ -15,7 +15,7 @@ import type { WorkflowRuntimePort } from '../../application/ports/workflow-runti
 import { ClosingCorrectionHelper } from './closing-correction.helper.js';
 
 describe('post-close appointment correction', () => {
-  it('increments only the selected appointment account and audits the assignment', async () => {
+  it('recalculates the selected appointment account from its bookings without drift', async () => {
     const workflowId = 'c00000000000000000000001';
     const personId = 'c00000000000000000000002';
     const assignmentId = 'c00000000000000000000003';
@@ -51,9 +51,31 @@ describe('post-close appointment correction', () => {
       timeType: {
         findUnique: vi.fn(async () => ({ code: 'WORK', category: TimeTypeCategory.WORK })),
       },
-      booking: { findFirst: vi.fn(async () => null), create },
+      booking: {
+        findFirst: vi.fn(async () => null),
+        create,
+        // An earlier 20-minute correction plus the one created now: 40 minutes = 0.67 h,
+        // where two increments of 0.3333 h stored at two decimals would give 0.66 h.
+        findMany: vi.fn(async () => [
+          {
+            startTime: new Date('2026-03-09T08:00:00.000Z'),
+            endTime: new Date('2026-03-09T08:20:00.000Z'),
+          },
+          {
+            startTime: new Date('2026-03-10T08:00:00.000Z'),
+            endTime: new Date('2026-03-10T08:20:00.000Z'),
+          },
+        ]),
+      },
       timeAccount: {
-        findMany: vi.fn(async () => [{ id: 'account-a' }]),
+        findMany: vi.fn(async () => [
+          {
+            id: 'account-a',
+            periodStart: new Date('2026-03-01T00:00:00.000Z'),
+            periodEnd: new Date('2026-03-31T23:59:59.000Z'),
+            targetHours: { toNumber: () => 8 },
+          },
+        ]),
         update,
       },
     };
@@ -84,7 +106,7 @@ describe('post-close appointment correction', () => {
         assignmentId,
         timeTypeId,
         startTime: '2026-03-10T08:00:00.000Z',
-        endTime: '2026-03-10T10:00:00.000Z',
+        endTime: '2026-03-10T08:20:00.000Z',
         reason: 'Approved correction reason',
       },
     );
@@ -95,7 +117,7 @@ describe('post-close appointment correction', () => {
     expect(update).toHaveBeenCalledTimes(1);
     expect(update).toHaveBeenCalledWith({
       where: { id: 'account-a' },
-      data: { actualHours: { increment: 2 }, balance: { increment: 2 } },
+      data: { actualHours: 0.67, balance: -7.33 },
     });
     expect(appendAudit).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -103,7 +125,16 @@ describe('post-close appointment correction', () => {
       }),
       tx,
     );
-    expect(result).toMatchObject({ assignmentId, durationHours: 2 });
+    expect(tx.booking.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          personId,
+          assignmentId,
+          startTime: { lt: new Date('2026-04-01T00:00:00.000Z') },
+        }),
+      }),
+    );
+    expect(result).toMatchObject({ assignmentId, durationHours: 0.3333 });
   });
 });
 

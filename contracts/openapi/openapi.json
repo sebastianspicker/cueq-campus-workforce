@@ -3188,6 +3188,46 @@
       }
     },
     "/v1/closing-periods": {
+      "post": {
+        "operationId": "ClosingController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "month"
+                ],
+                "properties": {
+                  "month": {
+                    "type": "string",
+                    "example": "2026-07"
+                  },
+                  "organizationUnitId": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Create an open closing period for a month (global or per unit)",
+        "tags": [
+          "closing"
+        ]
+      },
       "get": {
         "operationId": "ClosingController_list",
         "parameters": [

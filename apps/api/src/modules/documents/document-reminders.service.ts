@@ -31,9 +31,14 @@ export class DocumentRemindersService implements OnModuleInit {
     try {
       let cursor: string | undefined;
       const through = new Date(Date.now() + days * 86_400_000);
+      // Documents expired for over a week are not re-read forever; a reminder may still follow shortly after expiry.
+      const since = new Date(Date.now() - 7 * 86_400_000);
       for (;;) {
         const rows = await this.prisma.personnelDocument.findMany({
-          where: { expiresAt: { lte: through }, ...(cursor ? { id: { gt: cursor } } : {}) },
+          where: {
+            expiresAt: { gte: since, lte: through },
+            ...(cursor ? { id: { gt: cursor } } : {}),
+          },
           orderBy: { id: 'asc' },
           take: 100,
           select: { id: true },

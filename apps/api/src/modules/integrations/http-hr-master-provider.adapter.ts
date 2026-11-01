@@ -1,6 +1,7 @@
 /** Fetches and validates HR master data from the configured HTTP provider. */
 import { BadGatewayException, ServiceUnavailableException } from '@nestjs/common';
 import { z } from 'zod';
+import { isDevelopmentOrTest } from '../../platform/runtime-environment.js';
 import type { HrMasterProviderPort, HrMasterRecord } from './hr-master-provider.port.js';
 import { MAX_HR_IMPORT_RECORDS } from './hr-import-validation.js';
 
@@ -84,8 +85,10 @@ function configuredUrl(rawUrl: string): URL {
   if (parsed.username || parsed.password) {
     throw new ServiceUnavailableException('HR_MASTER_API_URL must not include credentials.');
   }
-  if (process.env.NODE_ENV === 'production' && parsed.protocol !== 'https:') {
-    throw new ServiceUnavailableException('HR_MASTER_API_URL must use HTTPS in production.');
+  if (!isDevelopmentOrTest() && parsed.protocol !== 'https:') {
+    throw new ServiceUnavailableException(
+      'HR_MASTER_API_URL must use HTTPS outside development and test.',
+    );
   }
 
   return parsed;

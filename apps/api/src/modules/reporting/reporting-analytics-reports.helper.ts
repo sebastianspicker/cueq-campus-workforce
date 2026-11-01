@@ -1,6 +1,7 @@
 /** Executes role-scoped reporting queries with the provider's existing collaborators. */
 import { ConflictException, ForbiddenException } from '@nestjs/common';
 import { Role, type ClosingStatus } from '@cueq/database';
+import { countAssignmentWorkingDays } from '@cueq/domain';
 import {
   ClosingCompletionQuerySchema,
   OeOvertimeQuerySchema,
@@ -23,6 +24,42 @@ type ReportingAnalyticsCollaborators = {
   personHelper: PersonHelper;
   complianceHelper: ReportingComplianceHelper;
 };
+
+type TermAbsence = {
+  personId: string;
+  type: string;
+  startDate: Date;
+  endDate: Date;
+  days: unknown;
+  workingDays: number[];
+  holidayDates: string[];
+};
+
+/** Only working days inside [from, to] count; fully contained absences keep their stored days. */
+function absencesInWindow(absences: TermAbsence[], from: string, to: string) {
+  const contributors = new Set<string>();
+  const byType = new Map<string, { requests: number; days: number }>();
+  for (const absence of absences) {
+    const start = absence.startDate.toISOString().slice(0, 10);
+    const end = absence.endDate.toISOString().slice(0, 10);
+    const days =
+      start >= from && end <= to
+        ? databaseNumber(absence.days)
+        : countAssignmentWorkingDays({
+            startDate: start > from ? start : from,
+            endDate: end < to ? end : to,
+            workingDays: absence.workingDays,
+            holidayDates: absence.holidayDates,
+          });
+    if (days <= 0) continue;
+    contributors.add(absence.personId);
+    const bucket = byType.get(absence.type) ?? { requests: 0, days: 0 };
+    bucket.requests += 1;
+    bucket.days += days;
+    byType.set(absence.type, bucket);
+  }
+  return { contributors, byType };
+}
 
 export async function reportTeamAbsence(
   { prisma, auditHelper, personHelper, complianceHelper }: ReportingAnalyticsCollaborators,
@@ -57,30 +94,31 @@ export async function reportTeamAbsence(
   `;
   const population = databaseNumber(populationRow?.people);
   const minGroupSize = complianceHelper.minGroupSize();
-  const suppressed = population < minGroupSize;
+  let suppressed = population < minGroupSize;
 
   let totals = { requests: 0, days: 0 };
   let buckets: Array<{ type: string; requests: number; days: number }> = [];
   const canViewAbsenceTypeBuckets = HR_LIKE_ROLES.has(user.role);
 
   if (!suppressed) {
-    const absenceGroups = await prisma.$queryRaw<
-      Array<{ type: string; requests: number | bigint; days: unknown }>
-    >`
-      SELECT absence."type"::text AS "type",
-             COUNT(*)::integer AS "requests",
-             COALESCE(SUM(absence."days"), 0)::numeric AS "days"
+    const absences = await prisma.$queryRaw<TermAbsence[]>`
+      SELECT absence."personId" AS "personId",
+             absence."type"::text AS "type",
+             absence."startDate" AS "startDate",
+             absence."endDate" AS "endDate",
+             absence."days" AS "days",
+             term."workingDays" AS "workingDays",
+             calendar."holidayDates" AS "holidayDates"
       FROM "absences" AS absence
-      WHERE absence."startDate" <= ${to}
+      INNER JOIN "employment_terms" AS term
+        ON term."assignmentId" = absence."assignmentId"
+        AND term."organizationUnitId" = ${targetOuId}
+        AND (term."effectiveFrom" IS NULL OR term."effectiveFrom" <= absence."startDate")
+        AND (term."effectiveTo" IS NULL OR term."effectiveTo" > absence."startDate")
+      INNER JOIN "holiday_calendars" AS calendar ON calendar."id" = term."holidayCalendarId"
+      WHERE absence."status"::text = 'APPROVED'
+        AND absence."startDate" <= ${to}
         AND absence."endDate" >= ${from}
-        AND EXISTS (
-          SELECT 1
-          FROM "employment_terms" AS term
-          WHERE term."assignmentId" = absence."assignmentId"
-            AND term."organizationUnitId" = ${targetOuId}
-            AND (term."effectiveFrom" IS NULL OR term."effectiveFrom" <= absence."startDate")
-            AND (term."effectiveTo" IS NULL OR term."effectiveTo" > absence."startDate")
-        )
         AND NOT EXISTS (
           SELECT 1
           FROM "employment_terms" AS other_term
@@ -89,21 +127,22 @@ export async function reportTeamAbsence(
             AND (other_term."effectiveFrom" IS NULL OR other_term."effectiveFrom" < absence."endDate" + INTERVAL '1 day')
             AND (other_term."effectiveTo" IS NULL OR other_term."effectiveTo" > absence."startDate")
         )
-      GROUP BY absence."type"
-      ORDER BY MIN(absence."startDate") ASC, absence."type" ASC
+      ORDER BY absence."startDate" ASC, absence."type" ASC, absence."id" ASC
     `;
-    totals = {
-      requests: absenceGroups.reduce((sum, group) => sum + databaseNumber(group.requests), 0),
-      days: Number(
-        absenceGroups.reduce((sum, group) => sum + databaseNumber(group.days), 0).toFixed(2),
-      ),
-    };
-    if (canViewAbsenceTypeBuckets) {
-      buckets = absenceGroups.map((group) => ({
-        type: group.type,
-        requests: databaseNumber(group.requests),
-        days: Number(databaseNumber(group.days).toFixed(2)),
+    const { contributors, byType } = absencesInWindow(absences, parsed.from, parsed.to);
+    // Contributors, not headcount, decide whether a total could identify one person.
+    suppressed = contributors.size < minGroupSize;
+    if (!suppressed) {
+      const groups = [...byType.entries()].map(([type, value]) => ({
+        type,
+        requests: value.requests,
+        days: Number(value.days.toFixed(2)),
       }));
+      totals = {
+        requests: groups.reduce((sum, group) => sum + group.requests, 0),
+        days: Number(groups.reduce((sum, group) => sum + group.days, 0).toFixed(2)),
+      };
+      if (canViewAbsenceTypeBuckets) buckets = groups;
     }
   }
 

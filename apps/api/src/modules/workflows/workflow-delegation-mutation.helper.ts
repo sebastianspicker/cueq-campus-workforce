@@ -4,7 +4,7 @@ import type { Prisma, WorkflowType } from '@cueq/database';
 import type { AuditHelper } from '../audit/public.js';
 import {
   lockPersonWrites,
-  lockPolicyWrites,
+  lockPolicyWritesExclusive,
 } from '../../platform/transactions/transaction-lock.helper.js';
 import { WORKFLOW_ROUTING_LOCK_SCOPE } from './workflow-assignment.helper.js';
 import { ensureValidDelegationTarget } from './workflow-delegation-validation.helper.js';
@@ -38,7 +38,7 @@ export async function createWorkflowDelegationInTransaction(
   actorId: string,
   payload: CreateDelegationPayload,
 ) {
-  await lockPolicyWrites(tx, WORKFLOW_ROUTING_LOCK_SCOPE);
+  await lockPolicyWritesExclusive(tx, WORKFLOW_ROUTING_LOCK_SCOPE);
   await lockPersonWrites(tx, [payload.delegatorId, payload.delegateId]);
   await ensureValidDelegationTarget(
     {
@@ -89,7 +89,7 @@ export async function updateWorkflowDelegationInTransaction(
   id: string,
   payload: UpdateDelegationPayload,
 ) {
-  await lockPolicyWrites(tx, WORKFLOW_ROUTING_LOCK_SCOPE);
+  await lockPolicyWritesExclusive(tx, WORKFLOW_ROUTING_LOCK_SCOPE);
   const currentAtWrite = await getDelegationForMutation(tx, id);
 
   const nextDelegateId = payload.delegateId ?? currentAtWrite.delegateId;
@@ -171,7 +171,7 @@ export async function deleteWorkflowDelegationInTransaction(
   actorId: string,
   id: string,
 ) {
-  await lockPolicyWrites(tx, WORKFLOW_ROUTING_LOCK_SCOPE);
+  await lockPolicyWritesExclusive(tx, WORKFLOW_ROUTING_LOCK_SCOPE);
   const currentAtWrite = await getDelegationForMutation(tx, id);
 
   await tx.workflowDelegationRule.delete({ where: { id } });

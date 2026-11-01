@@ -17,7 +17,7 @@ export type ProjectEffortSummary = {
 function csvCell(value: string | number | boolean | null) {
   if (value === null) return '';
   let text = String(value);
-  if (/^[=+\-@]/u.test(text)) text = `'${text}`;
+  if (typeof value === 'string' && /^[=+\-@\t\r]/u.test(text)) text = `'${text}`;
   return /[",\r\n]/u.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
 }
 
