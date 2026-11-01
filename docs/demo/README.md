@@ -48,10 +48,11 @@ whether controls work or the layout is readable; check those in the browser.
 
 ## Publish to GitHub Pages
 
-The [Pages workflow](../../.github/workflows/pages.yml) builds and checks
-relevant pull requests. On `main`, or when run manually, it also uploads and
-deploys `dist/pages-demo/`. Select `GitHub Actions` as the repository's Pages
-source. Only the deploy job receives deployment permissions.
+The [Pages workflow](../../.github/workflows/pages.yml) runs only when manually
+dispatched for the default branch. It builds, checks, uploads and deploys
+`dist/pages-demo/`; pushes and pull requests do not publish a demo. Select
+`GitHub Actions` as the repository's Pages source. Only the deploy job receives
+deployment permissions.
 
 After deployment, open the hosted page and try the steps above. Check asset
 loading and direct links such as `#genehmigungen`, which must also work under

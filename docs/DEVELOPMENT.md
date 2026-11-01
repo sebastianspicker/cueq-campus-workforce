@@ -93,6 +93,12 @@ right order. During focused work, you can call one workspace directly:
 
 [Testing](TESTING.md) describes the complete checks and their prerequisites.
 
+Generic CI runs automatically only for Dependabot-authored pull requests, and
+can also be started manually. Human-authored pull requests and pushes do not
+start generic validation. CodeQL remains automatic for security analysis.
+Publishing the static demo requires a separate manual dispatch on the default
+branch; validation never deploys it.
+
 ## Regenerate contracts
 
 Changes to Prisma, JSON Schema, Zod or HTTP contracts, and Swagger decorators may

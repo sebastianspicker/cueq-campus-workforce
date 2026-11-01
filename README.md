@@ -3,6 +3,21 @@
 cueq is a time and workforce management application for German universities,
 built with Next.js, NestJS, and PostgreSQL.
 
+<details>
+<summary>Status and limitations</summary>
+
+**Project status:** cueq is an independent experimental project exploring university time
+and workforce management. Developed independently alongside my main professional work. It is
+an early proof of concept and starting point for adaptation, not a ready-to-use HR product.
+Evaluate it with sample data; authentication and employee-data handling still need
+qualification.
+
+**Disclaimer.** Calculations and policy examples are not employment or legal advice, payroll
+approval or a compliance decision. Your organization must review working-time rules, access
+controls, privacy requirements and integrations before considering real employee records.
+
+</details>
+
 The project is in early development. Use sample data to try it locally. It is
 not ready to handle real employee records.
 
@@ -22,6 +37,15 @@ use a German university setting. To use cueq elsewhere, review the working-time
 rules, roles, retention requirements, and integrations for your organization.
 The [feature guide](docs/product-specs/README.md) and
 [university HR guide](docs/UNIVERSITY-HR.md) describe the workflows in more detail.
+
+The public demo and the full application have different data paths:
+
+```mermaid
+flowchart LR
+  Demo[Browser-only demo] --> Sample[Invented records in the current tab]
+  Web[Full web application] --> API[NestJS API]
+  API --> DB[PostgreSQL]
+```
 
 ## Screenshot tour
 

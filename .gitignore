@@ -177,3 +177,7 @@ CHATGPT_NOTES*
 /packages/domain/src/time-engine/__tests__/
 /packages/policy/src/__tests__/
 /scripts/test/
+
+# Local alpha audit and implementation handoff material (not public documentation)
+/ALPHA_AUDIT_REPORT.md
+/ALPHA_KNOWN_ISSUES.md
