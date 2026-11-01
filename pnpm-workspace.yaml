@@ -54,4 +54,4 @@ catalog:
   '@typescript-eslint/parser': '8.64.0'
   typescript: 'npm:@typescript/typescript6@6.0.2'
   vitest: '4.1.11'
-  zod: '3.25.76'
+  zod: '4.6.6'
