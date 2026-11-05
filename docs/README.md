@@ -19,7 +19,8 @@ more detail.
 - [Features](product-specs/README.md): available workflows and their limits.
 - [University HR](UNIVERSITY-HR.md): employment, personnel, projects, documents,
   and lifecycle tasks.
-- [Architecture](../ARCHITECTURE.md): packages, API features, and data flow.
+- [Architecture](../ARCHITECTURE.md): runtime, user journeys, state machines,
+  data model, and code map.
 - [Frontend](FRONTEND.md): routes, state, localization, and interface conventions.
 - [Architecture decisions](design-decisions/index.md): reasons behind major
   design choices.

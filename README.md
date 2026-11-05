@@ -3,6 +3,8 @@
 cueq is a time and workforce management application for German universities,
 built with Next.js, NestJS, and PostgreSQL.
 
+> _Claude was used to polish and proof-read the code and documentation of this repository._
+
 <details>
 <summary>Status and limitations</summary>
 
@@ -130,8 +132,8 @@ separate checks. See [Testing](docs/TESTING.md) for the details.
 | `docs/demo`          | Browser-only GitHub Pages demo                              |
 
 The web client and API run as separate processes. Shared packages are private
-workspace libraries. See [Architecture](ARCHITECTURE.md) for dependencies and
-request flows.
+workspace libraries. See [Architecture](ARCHITECTURE.md) for the runtime,
+user journeys, state machines, data model, and a code map.
 
 ## Documentation and contributions
 
