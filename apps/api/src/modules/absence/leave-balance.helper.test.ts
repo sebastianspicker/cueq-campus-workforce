@@ -1,5 +1,5 @@
 import { DEFAULT_LEAVE_RULE } from '@cueq/policy';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { AuthenticatedIdentity } from '../../platform/auth/auth.types.js';
 import { LeaveBalanceHelper } from './leave-balance.helper.js';
 
@@ -56,5 +56,22 @@ describe('LeaveBalanceHelper', () => {
 
     expect(balance.used).toBe(5);
     expect(balance.carriedOverUsed).toBe(2);
+  });
+
+  afterEach(() => vi.useRealTimers());
+
+  it('defaults year and as-of date to the Berlin date on New Year just after midnight', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-12-31T23:30:00.000Z')); // 00:30 on 1 Jan 2027 in Berlin
+    const selectAssignment = vi.fn().mockRejectedValue(new Error('stop after defaults'));
+    const helper = new LeaveBalanceHelper(
+      {} as never,
+      { personForUser: vi.fn().mockResolvedValue({ id: 'person-1' }) } as never,
+      { selectAssignment } as never,
+    );
+    await expect(
+      helper.leaveBalance({ role: 'EMPLOYEE' } as AuthenticatedIdentity),
+    ).rejects.toThrow('stop after defaults');
+    expect(selectAssignment.mock.calls[0]?.[3]).toEqual(new Date('2027-01-01T00:00:00.000Z'));
   });
 });

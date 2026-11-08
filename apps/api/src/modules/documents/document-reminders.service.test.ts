@@ -12,7 +12,8 @@ function fixture() {
     personnelDocumentVersion: { findFirst: vi.fn().mockResolvedValue({ id: 'version' }) },
   };
   const prisma = {
-    personnelDocument: { findMany: vi.fn().mockResolvedValue([{ id: document.id }]) },
+    personnelDocument: { findMany: vi.fn().mockResolvedValue([document]) },
+    inboxNotification: { findMany: vi.fn().mockResolvedValue([]) },
     $transaction: vi.fn(async (run) => run(tx)),
   };
   const notifications = { append: vi.fn() };
@@ -50,7 +51,7 @@ describe('private document expiry reminders', () => {
     expect(f.prisma.personnelDocument.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         take: 100,
-        select: { id: true },
+        select: { id: true, personId: true, expiresAt: true },
         where: {
           expiresAt: {
             gte: new Date('2026-08-31T00:00:00Z'),
@@ -59,6 +60,18 @@ describe('private document expiry reminders', () => {
         },
       }),
     );
+  });
+  it('skips documents that already have their reminder without opening a transaction', async () => {
+    vi.stubEnv('DOCUMENT_STORAGE_ROOT', '/configured/private');
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-09-07T00:00:00Z'));
+    const f = fixture();
+    f.prisma.inboxNotification.findMany.mockResolvedValue([
+      { recipientId: 'person', dedupeKey: 'document-expiry:document:2026-09-08T00:00:00.000Z' },
+    ]);
+    await f.service.poll();
+    expect(f.prisma.$transaction).not.toHaveBeenCalled();
+    expect(f.notifications.append).not.toHaveBeenCalled();
   });
   it('requires configured storage and rechecks current expiry and content before enqueueing', async () => {
     vi.stubEnv('DOCUMENT_STORAGE_ROOT', '');

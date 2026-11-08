@@ -1,7 +1,6 @@
 /** Queries transaction-scoped data for deterministic closing-checklist metrics. */
 import {
   AbsenceStatus,
-  Role,
   TimeTypeCategory,
   WorkflowStatus,
   WorkflowType,
@@ -23,6 +22,7 @@ import {
 } from './closing-checklist-rules.js';
 import { closingBalanceAnomalyHours } from './closing-config.js';
 import type { TimeAccountsPort } from '../attendance/public.js';
+import { TIME_TRACKED_ROLES } from '../people/public.js';
 
 export type ClosingDb = Pick<
   PrismaService,
@@ -222,7 +222,7 @@ async function closingPopulation(
 ): Promise<ClosingPopulation> {
   const assignments = await db.employmentAssignment.findMany({
     where: {
-      person: { role: { in: [Role.EMPLOYEE, Role.SHIFT_PLANNER] } },
+      person: { role: { in: TIME_TRACKED_ROLES } },
       AND: [
         { OR: [{ employmentStartDate: null }, { employmentStartDate: { lte: period.periodEnd } }] },
         { OR: [{ employmentEndDate: null }, { employmentEndDate: { gte: period.periodStart } }] },

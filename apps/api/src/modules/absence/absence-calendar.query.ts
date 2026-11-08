@@ -3,6 +3,10 @@ import { BadRequestException } from '@nestjs/common';
 import { AbsenceStatus, Role } from '@cueq/database';
 import { TeamCalendarQuerySchema } from '@cueq/contracts';
 
+/** Today's date (YYYY-MM-DD) in the university's time zone, not the server's UTC date. */
+export const berlinDate = (now = new Date()): string =>
+  new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Berlin' }).format(now);
+
 /** The web calendar requests one month at a time; a quarter leaves headroom. */
 const MAX_TEAM_CALENDAR_DAYS = 93;
 
@@ -11,13 +15,13 @@ export function teamCalendarDateRange(
   end?: string,
 ): { startDate: Date; endDate: Date } {
   const query = TeamCalendarQuerySchema.parse({ start, end });
-  const today = new Date();
+  const [year, month] = berlinDate().split('-').map(Number) as [number, number];
   const startDate = query.start
     ? new Date(query.start.includes('T') ? query.start : `${query.start}T00:00:00.000Z`)
-    : new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1, 0, 0, 0, 0));
+    : new Date(Date.UTC(year, month - 1, 1, 0, 0, 0, 0));
   const endDate = query.end
     ? new Date(query.end.includes('T') ? query.end : `${query.end}T23:59:59.999Z`)
-    : new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() + 1, 0, 23, 59, 59, 999));
+    : new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
 
   if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
     throw new BadRequestException('Invalid start or end date.');

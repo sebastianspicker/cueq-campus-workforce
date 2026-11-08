@@ -1,6 +1,5 @@
 /** Centralizes roster reads and plan-versus-actual coverage calculations. */
 import { BadRequestException, Inject, Injectable } from '@nestjs/common';
-import { Role } from '@cueq/database';
 import { AssignmentOptionPageSchema, CursorQuerySchema, DateTimeSchema } from '@cueq/contracts';
 import { PrismaService } from '../../persistence/prisma.service.js';
 import { cursorWhere } from '../../persistence/queries/cursor-page.js';
@@ -9,6 +8,7 @@ import {
   type RosterWithPlanShifts,
 } from '../../application/roster/plan-vs-actual-coverage.js';
 import { appointmentCoversOrganizationUnit } from '../../application/roster/appointment-eligibility.js';
+import { TIME_TRACKED_ROLES } from '../people/public.js';
 
 const RosterMemberAssignmentsQuerySchema = CursorQuerySchema.extend({
   from: DateTimeSchema,
@@ -94,7 +94,7 @@ export class RosterQueryHelper {
   }) {
     const members = await this.prisma.person.findMany({
       where: {
-        role: { in: [Role.EMPLOYEE, Role.SHIFT_PLANNER] },
+        role: { in: TIME_TRACKED_ROLES },
         employmentAssignments: {
           some: {
             AND: [
@@ -178,7 +178,7 @@ export class RosterQueryHelper {
       const candidates = await this.prisma.employmentAssignment.findMany({
         where: {
           personId,
-          person: { role: { in: [Role.EMPLOYEE, Role.SHIFT_PLANNER] } },
+          person: { role: { in: TIME_TRACKED_ROLES } },
           AND: [
             cursorWhere('createdAt', scanCursor),
             {

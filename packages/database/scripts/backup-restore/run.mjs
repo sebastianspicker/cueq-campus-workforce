@@ -46,10 +46,11 @@ export async function runBackupRestoreVerification({
     });
     runPsql(connection, 'postgres', `DROP DATABASE IF EXISTS "${restoreDatabase}"`, tempDir);
     runPsql(connection, 'postgres', `CREATE DATABASE "${restoreDatabase}"`, tempDir);
-    restoreDump(connection, restoreDatabase, tempDir, dumpPath);
-
-    const restored = new PrismaClientClass({ datasources: { db: { url: restoreUrl } } });
+    // The restore copy holds personnel data: drop it even when pg_restore itself fails.
+    let restored;
     try {
+      restoreDump(connection, restoreDatabase, tempDir, dumpPath);
+      restored = new PrismaClientClass({ datasources: { db: { url: restoreUrl } } });
       const restoredSnapshot = await snapshotSource(restored, undefined, {
         environment: { ...process.env, DOCUMENT_STORAGE_ROOT: documentCopyRoot },
       });
@@ -78,7 +79,7 @@ export async function runBackupRestoreVerification({
         });
       }
     } finally {
-      await restored.$disconnect();
+      await restored?.$disconnect();
       runPsql(connection, 'postgres', `DROP DATABASE IF EXISTS "${restoreDatabase}"`, tempDir);
     }
   } finally {

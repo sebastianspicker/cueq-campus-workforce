@@ -71,15 +71,15 @@ use `HONEYWELL_CSV_V1`.
 Generate a local encryption key with `openssl rand -base64 32`. The result is
 the canonical base64 form of the required 32-byte key.
 
-| Variable                                 | Default           | Description                                                                     |
-| ---------------------------------------- | ----------------- | ------------------------------------------------------------------------------- |
-| `WEBHOOK_SECRET_ENCRYPTION_KEY`          | none              | Active key used to encrypt signing secrets                                      |
-| `WEBHOOK_SECRET_PREVIOUS_ENCRYPTION_KEY` | unset             | Old key available only during migration or rotation                             |
-| `WEBHOOK_ALLOW_PRIVATE_TARGETS`          | `false`           | Allows loopback, link-local, and private targets                                |
-| `WEBHOOK_DISPATCH_BATCH_SIZE`            | `50`              | Most events claimed by one authorized dispatch                                  |
-| `WEBHOOK_MAX_ATTEMPTS`                   | `5`               | Delivery attempt limit                                                          |
-| `WEBHOOK_REQUEST_TIMEOUT_MS`             | `5000`            | Per-request timeout in milliseconds                                             |
-| `WEBHOOK_CLAIM_LEASE_MS`                 | 15-minute minimum | Worker lease; never less than the internal minimum or twice the request timeout |
+| Variable                                 | Default           | Description                                                                                                         |
+| ---------------------------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `WEBHOOK_SECRET_ENCRYPTION_KEY`          | none              | Active key used to encrypt signing secrets                                                                          |
+| `WEBHOOK_SECRET_PREVIOUS_ENCRYPTION_KEY` | unset             | Old key available only during migration or rotation                                                                 |
+| `WEBHOOK_ALLOW_PRIVATE_TARGETS`          | `false`           | Registration only: accepts private/loopback URLs and `http` in production; delivery still requires public addresses |
+| `WEBHOOK_DISPATCH_BATCH_SIZE`            | `50`              | Most events claimed by one authorized dispatch                                                                      |
+| `WEBHOOK_MAX_ATTEMPTS`                   | `5`               | Delivery attempt limit                                                                                              |
+| `WEBHOOK_REQUEST_TIMEOUT_MS`             | `5000`            | Per-request timeout in milliseconds                                                                                 |
+| `WEBHOOK_CLAIM_LEASE_MS`                 | 15-minute minimum | Worker lease; never less than the internal minimum or twice the request timeout                                     |
 
 Keep private-target access disabled except in isolated test environments. Use
 the key-rotation procedure in [Operations](OPERATIONS.md).

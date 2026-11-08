@@ -15,7 +15,7 @@ import {
   databaseNumber,
   overtimeTotalsFromAggregate,
 } from './reporting-analytics-aggregation.helper.js';
-import { HR_LIKE_ROLES, type PersonHelper } from '../people/public.js';
+import { HR_LIKE_ROLES, TIME_TRACKED_ROLES, type PersonHelper } from '../people/public.js';
 import type { ReportingComplianceHelper } from './reporting-compliance.helper.js';
 
 type ReportingAnalyticsCollaborators = {
@@ -80,7 +80,7 @@ export async function reportTeamAbsence(
     SELECT COUNT(DISTINCT assignment."personId")::integer AS "people"
     FROM "employment_assignments" AS assignment
     INNER JOIN "persons" AS person ON person."id" = assignment."personId"
-    WHERE person."role"::text IN ('EMPLOYEE', 'TEAM_LEAD', 'SHIFT_PLANNER')
+    WHERE person."role"::text = ANY(${TIME_TRACKED_ROLES})
       AND (assignment."employmentStartDate" IS NULL OR assignment."employmentStartDate" <= ${to})
       AND (assignment."employmentEndDate" IS NULL OR assignment."employmentEndDate" >= ${from})
       AND EXISTS (

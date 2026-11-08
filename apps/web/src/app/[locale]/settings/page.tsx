@@ -10,6 +10,7 @@ import { useApiContext } from '../../../platform/http/api-context';
 import {
   applyThemePreference,
   getStoredPreference,
+  DEFAULT_PAGE_SIZE,
   PAGE_SIZE_PREFERENCE_SLOT,
   setStoredPreference,
   THEME_PREFERENCE_SLOT,
@@ -21,7 +22,7 @@ export default function SettingsPage() {
 
   const [theme, setTheme] = useState(() => getStoredPreference(THEME_PREFERENCE_SLOT, 'system'));
   const [pageSize, setPageSize] = useState(() =>
-    getStoredPreference(PAGE_SIZE_PREFERENCE_SLOT, '20'),
+    getStoredPreference(PAGE_SIZE_PREFERENCE_SLOT, DEFAULT_PAGE_SIZE),
   );
   const [message, setMessage] = useState<string | null>(null);
 

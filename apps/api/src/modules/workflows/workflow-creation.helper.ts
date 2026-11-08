@@ -7,7 +7,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import type { Prisma } from '@cueq/database';
-import { WorkflowType } from '@cueq/database';
+import { WorkflowStatus, WorkflowType } from '@cueq/database';
 import {
   BookingCorrectionSchema,
   ShiftSwapRequestSchema,
@@ -326,6 +326,37 @@ export class WorkflowCreationHelper {
         throw new BadRequestException(
           'No matching time account exists for the requested overtime approval period.',
         );
+      }
+      // A retry or double-submit must not create a second request whose approval adds the hours again.
+      // Compare instants, not strings: `…Z` and `…000Z` are the same period. Open requests per account are few.
+      const openRequests = await tx.workflowInstance.findMany({
+        where: {
+          type: WorkflowType.OVERTIME_APPROVAL,
+          entityType: 'TimeAccount',
+          entityId: matchingAccount.id,
+          status: {
+            in: [
+              WorkflowStatus.DRAFT,
+              WorkflowStatus.SUBMITTED,
+              WorkflowStatus.PENDING,
+              WorkflowStatus.ESCALATED,
+            ],
+          },
+        },
+        select: { id: true, requestPayload: true },
+      });
+      const sameInstant = (stored: unknown, wanted: Date) =>
+        typeof stored === 'string' && new Date(stored).getTime() === wanted.getTime();
+      const openDuplicate = openRequests.find(({ requestPayload }) => {
+        const payload = (requestPayload ?? {}) as { periodStart?: unknown; periodEnd?: unknown };
+        return sameInstant(payload.periodStart, start) && sameInstant(payload.periodEnd, end);
+      });
+      if (openDuplicate) {
+        throw new ConflictException({
+          code: 'OVERTIME_APPROVAL_ALREADY_OPEN',
+          message: 'An overtime request for this period is already open.',
+          workflowId: openDuplicate.id,
+        });
       }
 
       const assignment = await this.workflowRuntimeService.buildWorkflowAssignment(

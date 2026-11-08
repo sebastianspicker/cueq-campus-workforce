@@ -1,6 +1,6 @@
 /** Converts between API instants and Europe/Berlin datetime-local values, including DST edge cases. */
 const BERLIN_TIME_ZONE = 'Europe/Berlin';
-const LOCAL_DATE_TIME_PATTERN = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/u;
+const LOCAL_DATE_TIME_PATTERN = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/u;
 const berlinFormatter = new Intl.DateTimeFormat('en-GB', {
   timeZone: BERLIN_TIME_ZONE,
   year: 'numeric',
@@ -50,8 +50,11 @@ function pad(value: number): string {
   return String(value).padStart(2, '0');
 }
 
-function asLocalInput(parts: DateTimeParts): string {
-  return `${parts.year}-${pad(parts.month)}-${pad(parts.day)}T${pad(parts.hour)}:${pad(parts.minute)}`;
+// Display stays minute-precision (inputs without step=1 reject seconds); parsing compares with seconds,
+// so `step={1}` inputs can reach month ends such as 23:59:59Z.
+function asLocalInput(parts: DateTimeParts, withSeconds = false): string {
+  const seconds = withSeconds ? `:${pad(parts.second)}` : '';
+  return `${parts.year}-${pad(parts.month)}-${pad(parts.day)}T${pad(parts.hour)}:${pad(parts.minute)}${seconds}`;
 }
 
 function berlinOffsetAt(timestamp: number): number {
@@ -81,14 +84,14 @@ export function localDateTimeInputToIsoInstant(value: string): string | null {
   if (!match) {
     return null;
   }
-  const [, yearText, monthText, dayText, hourText, minuteText] = match;
+  const [, yearText, monthText, dayText, hourText, minuteText, secondText] = match;
   const target = {
     year: Number(yearText),
     month: Number(monthText),
     day: Number(dayText),
     hour: Number(hourText),
     minute: Number(minuteText),
-    second: 0,
+    second: Number(secondText ?? 0),
   };
   if (
     target.month < 1 ||
@@ -96,7 +99,8 @@ export function localDateTimeInputToIsoInstant(value: string): string | null {
     target.day < 1 ||
     target.day > 31 ||
     target.hour > 23 ||
-    target.minute > 59
+    target.minute > 59 ||
+    target.second > 59
   ) {
     return null;
   }
@@ -107,7 +111,9 @@ export function localDateTimeInputToIsoInstant(value: string): string | null {
     target.day,
     target.hour,
     target.minute,
+    target.second,
   );
+  const canonical = asLocalInput(target, true);
   const candidateOffsets = new Set(
     [-86_400_000, -21_600_000, 0, 21_600_000, 86_400_000].map((delta) =>
       berlinOffsetAt(wallClockAsUtc + delta),
@@ -115,7 +121,7 @@ export function localDateTimeInputToIsoInstant(value: string): string | null {
   );
   const matchingInstants = [...candidateOffsets]
     .map((offset) => new Date(wallClockAsUtc - offset))
-    .filter((candidate) => asLocalInput(berlinParts(candidate)) === value)
+    .filter((candidate) => asLocalInput(berlinParts(candidate), true) === canonical)
     .sort((left, right) => left.getTime() - right.getTime());
 
   return matchingInstants[0]?.toISOString() ?? null;

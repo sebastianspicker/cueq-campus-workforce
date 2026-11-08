@@ -188,18 +188,16 @@ export class ClosingDomainService {
       throw new ForbiddenException('Team leads can only access closing periods in their own unit.');
     }
 
-    const from = parsed.from
-      ? parseMonthToRange(parsed.from).from
-      : new Date('2026-01-01T00:00:00.000Z');
-    const to = parsed.to ? parseMonthToRange(parsed.to).to : new Date('2030-12-31T23:59:59.000Z');
+    const from = parsed.from ? parseMonthToRange(parsed.from).from : undefined;
+    const to = parsed.to ? parseMonthToRange(parsed.to).to : undefined;
     const targetOuId =
       user.role === Role.TEAM_LEAD ? actor.organizationUnitId : parsed.organizationUnitId;
 
     const periods = await this.prisma.closingPeriod.findMany({
       where: {
         organizationUnitId: targetOuId,
-        periodStart: { lte: to },
-        periodEnd: { gte: from },
+        ...(to ? { periodStart: { lte: to } } : {}),
+        ...(from ? { periodEnd: { gte: from } } : {}),
       },
       include: {
         exportRuns: {

@@ -14,6 +14,7 @@ import { LeaveRuleSchema, type LeaveRule } from '@cueq/policy';
 import { PrismaService } from '../../persistence/prisma.service.js';
 import type { AuthenticatedIdentity } from '../../platform/auth/auth.types.js';
 import { AssignmentHelper, PersonHelper } from '../people/public.js';
+import { berlinDate } from './absence-calendar.query.js';
 
 type Term = Prisma.EmploymentTermGetPayload<{
   include: { employmentGroup: true; holidayCalendar: true; workTimeModel: true };
@@ -168,10 +169,8 @@ export class LeaveBalanceHelper {
   ) {}
 
   private defaultAsOfDate(targetYear: number): string {
-    const today = new Date();
-    return targetYear === today.getUTCFullYear()
-      ? today.toISOString().slice(0, 10)
-      : `${targetYear}-12-31`;
+    const today = berlinDate();
+    return targetYear === Number(today.slice(0, 4)) ? today : `${targetYear}-12-31`;
   }
 
   private calculate(input: {
@@ -221,7 +220,7 @@ export class LeaveBalanceHelper {
     assignmentId?: string,
   ) {
     const person = await this.personHelper.personForUser(user);
-    const targetYear = year ?? new Date().getUTCFullYear();
+    const targetYear = year ?? Number(berlinDate().slice(0, 4));
     const resolvedAsOfDate = asOfDate ?? this.defaultAsOfDate(targetYear);
     let asOf: Date;
     try {

@@ -35,7 +35,7 @@ import {
 } from '../../platform/transactions/transaction-lock.helper.js';
 import { parseRequest } from '../../platform/http/validation/zod-validation.pipe.js';
 import { AuditHelper } from '../audit/public.js';
-import { AssignmentHelper, PersonHelper } from '../people/public.js';
+import { AssignmentHelper, PersonHelper, TIME_TRACKED_ROLES } from '../people/public.js';
 import { roundToTwo } from '@cueq/domain';
 import {
   actualHoursForInterval,
@@ -81,6 +81,21 @@ function reconciliationRequired(message: string): ConflictException {
   return new ConflictException({ code: 'TIME_ACCOUNT_RECONCILIATION_REQUIRED', message });
 }
 
+/** Adds the appointment to a 409 so HR can find which of many appointments blocks closing. */
+function forAppointment<T>(assignment: { id: string; personId: string }, run: () => T): T {
+  try {
+    return run();
+  } catch (error) {
+    if (!(error instanceof ConflictException)) throw error;
+    const response = error.getResponse();
+    throw new ConflictException({
+      ...(typeof response === 'object' ? response : { message: response }),
+      personId: assignment.personId,
+      assignmentId: assignment.id,
+    });
+  }
+}
+
 function accountMatchesCalculation(account: AccountRow, segment: PlannedSegment): boolean {
   return (
     Math.abs(account.targetHours.toNumber() - segment.targetHours) < 0.005 &&
@@ -93,7 +108,7 @@ function planAssignmentWhere(
   period: TimeAccountClosingPeriod,
 ): Prisma.EmploymentAssignmentWhereInput {
   return {
-    person: { role: { in: [Role.EMPLOYEE, Role.SHIFT_PLANNER] } },
+    person: { role: { in: TIME_TRACKED_ROLES } },
     AND: [
       { OR: [{ employmentStartDate: null }, { employmentStartDate: { lte: period.periodEnd } }] },
       { OR: [{ employmentEndDate: null }, { employmentEndDate: { gte: period.periodStart } }] },
@@ -546,44 +561,48 @@ export class TimeAccountService implements TimeAccountsPort {
       orderBy: [{ personId: 'asc' }, { id: 'asc' }],
     });
     const periodEndExclusive = inclusivePeriodEndToExclusive(period.periodEnd);
-    const planned = assignments.map((assignment) => {
-      const employmentStart = assignment.employmentStartDate ?? period.periodStart;
-      const employmentEnd = assignment.employmentEndDate
-        ? new Date(assignment.employmentEndDate.getTime() + 86_400_000)
-        : periodEndExclusive;
-      const assignmentStart = new Date(
-        Math.max(period.periodStart.getTime(), employmentStart.getTime()),
-      );
-      const assignmentEnd = new Date(
-        Math.min(periodEndExclusive.getTime(), employmentEnd.getTime()),
-      );
-      const termSegments = assignment.terms
-        .map((term) => ({
-          term,
-          start: new Date(
-            Math.max(assignmentStart.getTime(), term.effectiveFrom?.getTime() ?? -Infinity),
-          ),
-          end: new Date(Math.min(assignmentEnd.getTime(), term.effectiveTo?.getTime() ?? Infinity)),
-        }))
-        .filter((segment) => segment.start < segment.end);
-      let coverageCursor = assignmentStart;
-      for (const segment of termSegments) {
-        if (segment.start.getTime() !== coverageCursor.getTime()) {
+    const planned = assignments.map((assignment) =>
+      forAppointment(assignment, () => {
+        const employmentStart = assignment.employmentStartDate ?? period.periodStart;
+        const employmentEnd = assignment.employmentEndDate
+          ? new Date(assignment.employmentEndDate.getTime() + 86_400_000)
+          : periodEndExclusive;
+        const assignmentStart = new Date(
+          Math.max(period.periodStart.getTime(), employmentStart.getTime()),
+        );
+        const assignmentEnd = new Date(
+          Math.min(periodEndExclusive.getTime(), employmentEnd.getTime()),
+        );
+        const termSegments = assignment.terms
+          .map((term) => ({
+            term,
+            start: new Date(
+              Math.max(assignmentStart.getTime(), term.effectiveFrom?.getTime() ?? -Infinity),
+            ),
+            end: new Date(
+              Math.min(assignmentEnd.getTime(), term.effectiveTo?.getTime() ?? Infinity),
+            ),
+          }))
+          .filter((segment) => segment.start < segment.end);
+        let coverageCursor = assignmentStart;
+        for (const segment of termSegments) {
+          if (segment.start.getTime() !== coverageCursor.getTime()) {
+            throw reconciliationRequired(
+              segment.start < coverageCursor
+                ? 'Appointment terms overlap inside the closing period.'
+                : 'Appointment terms do not continuously cover the closing period.',
+            );
+          }
+          coverageCursor = segment.end;
+        }
+        if (coverageCursor.getTime() !== assignmentEnd.getTime()) {
           throw reconciliationRequired(
-            segment.start < coverageCursor
-              ? 'Appointment terms overlap inside the closing period.'
-              : 'Appointment terms do not continuously cover the closing period.',
+            'Appointment terms do not continuously cover the closing period.',
           );
         }
-        coverageCursor = segment.end;
-      }
-      if (coverageCursor.getTime() !== assignmentEnd.getTime()) {
-        throw reconciliationRequired(
-          'Appointment terms do not continuously cover the closing period.',
-        );
-      }
-      return { assignment, termSegments };
-    });
+        return { assignment, termSegments };
+      }),
+    );
     if (!planned.length) return { segments: [] };
     const assignmentIds = planned.map(({ assignment }) => assignment.id);
     const [bookings, absences] = await Promise.all([
@@ -622,11 +641,8 @@ export class TimeAccountService implements TimeAccountsPort {
           calculationEnd.getTime() === periodEndExclusive.getTime()
             ? period.periodEnd
             : calculationEnd;
-        const targetHours = targetHoursForInterval(
-          term,
-          start,
-          calculationEnd,
-          appointmentAbsences,
+        const targetHours = forAppointment(assignment, () =>
+          targetHoursForInterval(term, start, calculationEnd, appointmentAbsences),
         );
         const actualHours = actualHoursForInterval(appointmentBookings, start, calculationEnd);
         segments.push({

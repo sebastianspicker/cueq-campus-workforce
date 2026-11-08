@@ -41,9 +41,24 @@ export class DocumentRemindersService implements OnModuleInit {
           },
           orderBy: { id: 'asc' },
           take: 100,
-          select: { id: true },
+          select: { id: true, personId: true, expiresAt: true },
         });
-        for (const row of rows)
+        // Each document is reminded once; skip already-delivered ones before opening a transaction.
+        const keyOf = (row: { id: string; expiresAt: Date | null }) =>
+          `document-expiry:${row.id}:${row.expiresAt?.toISOString()}`;
+        const delivered = new Set(
+          (
+            await this.prisma.inboxNotification.findMany({
+              where: {
+                recipientId: { in: rows.map((row) => row.personId) },
+                dedupeKey: { in: rows.map(keyOf) },
+              },
+              select: { recipientId: true, dedupeKey: true },
+            })
+          ).map((notification) => `${notification.recipientId}|${notification.dedupeKey}`),
+        );
+        for (const row of rows) {
+          if (delivered.has(`${row.personId}|${keyOf(row)}`)) continue;
           await this.prisma.$transaction(async (tx) => {
             const document = await tx.personnelDocument.findUnique({ where: { id: row.id } });
             if (!document?.expiresAt || document.expiresAt > through) return;
@@ -58,10 +73,11 @@ export class DocumentRemindersService implements OnModuleInit {
                 resourceType: 'PersonnelDocument',
                 resourceId: document.id,
                 messageCode: 'DOCUMENT_EXPIRING',
-                dedupeKey: `document-expiry:${document.id}:${document.expiresAt.toISOString()}`,
+                dedupeKey: keyOf(document),
               },
             ]);
           });
+        }
         if (rows.length < 100) break;
         cursor = rows.at(-1)?.id;
       }

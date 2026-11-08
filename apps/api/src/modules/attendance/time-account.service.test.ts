@@ -265,9 +265,11 @@ describe('appointment time-account lifecycle', () => {
       timeAccount: { findMany: vi.fn() },
     };
     const fixture = serviceWith(tx);
+    // HR must be able to find the broken appointment among thousands.
     await expect(fixture.service.countMissingForClosing(tx as never, period)).rejects.toMatchObject(
       {
         status: 409,
+        response: { personId: account.personId, assignmentId: account.assignmentId },
       },
     );
     expect(tx.booking.findMany).not.toHaveBeenCalled();

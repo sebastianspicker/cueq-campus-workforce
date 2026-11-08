@@ -3,6 +3,7 @@ export { PersonHelper } from './person.helper.js';
 export { AssignmentHelper, type ResolvedEmployment } from './assignment.helper.js';
 export { CapabilityHelper } from './capability.helper.js';
 export {
+  TIME_TRACKED_ROLES,
   HR_LIKE_ROLES,
   APPROVAL_ROLES,
   CLOSING_READ_ROLES,

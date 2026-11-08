@@ -169,7 +169,9 @@ export class DocumentObjectStorage {
     };
     const key = this.keys.get(header.keyId);
     if (!key || header.keyId !== manifest.keyId) throw new Error('DOCUMENT_DECRYPTION_KEY_MISSING');
-    const decipher = createDecipheriv('aes-256-gcm', key, Buffer.from(header.nonce, 'base64'));
+    const decipher = createDecipheriv('aes-256-gcm', key, Buffer.from(header.nonce, 'base64'), {
+      authTagLength: 16,
+    });
     decipher.setAAD(Buffer.from(MAGIC + header.keyId));
     decipher.setAuthTag(Buffer.from(header.tag, 'base64'));
     const content = Buffer.concat([decipher.update(envelope.subarray(end + 1)), decipher.final()]);

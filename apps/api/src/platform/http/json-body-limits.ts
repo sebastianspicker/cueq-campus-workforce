@@ -20,7 +20,8 @@ function isJsonContentType(req: RequestLike): boolean {
 }
 
 function isLargeJsonRoute(req: RequestLike): boolean {
-  const path = (req.url ?? '').split('?', 1).join('');
+  // Match the way Express routes: case-insensitive, trailing slash optional.
+  const path = (req.url ?? '').split('?', 1).join('').replace(/\/+$/u, '').toLowerCase();
   return req.method === 'POST' && LARGE_JSON_PATHS.has(path);
 }
 

@@ -7,7 +7,7 @@ import {
   type AuditWriterPort,
 } from '../../application/ports/audit-writer.port.js';
 import { PrismaService } from '../../persistence/prisma.service.js';
-import { lockClosingPeriodWrites } from './transaction-lock.helper.js';
+import { lockClosingPeriodWritesShared } from './transaction-lock.helper.js';
 
 /** Context recorded when a closing-period write barrier denies a mutation. */
 export interface ClosingBlockedAttemptInput {
@@ -125,9 +125,9 @@ export class ClosingLockHelper {
     },
     tx: Prisma.TransactionClient,
   ): Promise<void> {
-    // Lock every overlapping period, including OPEN periods.  A transition from
-    // OPEN to REVIEW must therefore serialize with an overlapping write rather
-    // than slipping in after an unlocked-state read.
+    // Share-lock every overlapping period, including OPEN periods: writers run in
+    // parallel, but a transition from OPEN to REVIEW (exclusive lock) must
+    // serialize with them rather than slipping in after an unlocked-state read.
     const overlappingPeriods = await tx.closingPeriod.findMany({
       where: this.overlappingClosingPeriodWhere(input, false),
       select: { id: true },
@@ -135,7 +135,7 @@ export class ClosingLockHelper {
     });
 
     for (const period of overlappingPeriods) {
-      await lockClosingPeriodWrites(tx, period.id);
+      await lockClosingPeriodWritesShared(tx, period.id);
     }
 
     const lockedPeriod = await tx.closingPeriod.findFirst({
@@ -180,7 +180,7 @@ export class ClosingLockHelper {
     }
 
     for (const periodId of [...overlappingPeriodIds].sort()) {
-      await lockClosingPeriodWrites(tx, periodId);
+      await lockClosingPeriodWritesShared(tx, periodId);
     }
 
     const lockedPeriodsById = new Map<string, ClosingLockedPeriod>();

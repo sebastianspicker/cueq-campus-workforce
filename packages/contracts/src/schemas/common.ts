@@ -69,8 +69,6 @@ export function validateOptionalDateTimeQueryRange(
 
 export const DateSchema = z.string().date();
 
-export const TimeSchema = z.string().regex(/^(?:[01]\d|2[0-3]):[0-5]\d$/, 'Must be HH:MM format');
-
 export const PositiveDecimalSchema = z.number().nonnegative();
 
 export const DateRangeSchema = z
@@ -83,33 +81,6 @@ export const DateRangeSchema = z
     path: ['end'],
   });
 export type DateRange = z.infer<typeof DateRangeSchema>;
-
-export const PaginationSchema = z.object({
-  page: z.number().int().positive().default(1),
-  pageSize: z.number().int().positive().max(100).default(20),
-});
-export type Pagination = z.infer<typeof PaginationSchema>;
-
-/** Paginated response wrapper: generic, cannot be expressed as a Zod schema */
-// eslint-disable-next-line cueq/no-manual-schema-types
-export type PaginatedResponse<T> = {
-  data: T[];
-  meta: {
-    page: number;
-    pageSize: number;
-    totalItems: number;
-    totalPages: number;
-  };
-};
-
-export const ApiErrorSchema = z.object({
-  statusCode: z.number().int(),
-  error: z.string(),
-  message: z.string(),
-  details: z.array(z.string()).optional(),
-  correlationId: z.string().optional(),
-});
-export type ApiError = z.infer<typeof ApiErrorSchema>;
 
 /**
  * Sanitized subset retained at the browser boundary for structured API errors.

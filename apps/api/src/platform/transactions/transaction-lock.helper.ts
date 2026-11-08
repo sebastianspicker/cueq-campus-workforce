@@ -51,6 +51,26 @@ export async function lockClosingPeriodWrites(
 }
 
 /**
+ * Shared side of the closing-period barrier for ordinary writers: writers run concurrently,
+ * but fail fast while a closing transition holds {@link lockClosingPeriodWrites}.
+ */
+export async function lockClosingPeriodWritesShared(
+  tx: TransactionLockClient,
+  closingPeriodId: string,
+): Promise<void> {
+  const [lock] = await tx.$queryRaw<Array<{ acquired: boolean }>>`
+    SELECT pg_try_advisory_xact_lock_shared(hashtextextended(${`cueq:closing-period-write:${closingPeriodId}`}, 0)) AS acquired
+  `;
+  if (!lock?.acquired) {
+    throw new ConflictException({
+      code: 'CLOSING_PERIOD_WRITE_IN_PROGRESS',
+      message: 'Another write for this closing period is in progress.',
+      retryable: true,
+    });
+  }
+}
+
+/**
  * Serializes one terminal/checksum pair so retrying the same batch cannot create a parallel ingestion run.
  */
 export async function lockTerminalIngestion(

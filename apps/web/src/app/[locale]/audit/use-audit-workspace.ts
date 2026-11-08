@@ -13,6 +13,7 @@ import { useReadRequests } from '../../../shared/workspace/use-read-requests';
 import { useApiContext } from '../../../platform/http/api-context';
 import {
   getStoredPreference,
+  DEFAULT_PAGE_SIZE,
   PAGE_SIZE_PREFERENCE_SLOT,
 } from '../../../platform/browser/preferences';
 import { berlinMonth, monthBounds } from '../../../shared/time/calendar-defaults';
@@ -25,7 +26,7 @@ export function useAuditWorkspace() {
   const [error, setError] = useState<string | null>(null);
   const [from, setFrom] = useState(() => monthBounds(berlinMonth()).first);
   const [to, setTo] = useState(() => monthBounds(berlinMonth()).last);
-  const [pageSize, setPageSize] = useState(20);
+  const [pageSize, setPageSize] = useState(Number(DEFAULT_PAGE_SIZE));
   const [summary, setSummary] = useState<AuditSummaryReport | null>(null);
   const [entriesLoading, setEntriesLoading] = useState(false);
   const [entriesError, setEntriesError] = useState<string | null>(null);
@@ -39,7 +40,10 @@ export function useAuditWorkspace() {
   const [loadedQuery, setLoadedQuery] = useState<string | null>(null);
 
   useEffect(() => {
-    setPageSize(Number(getStoredPreference(PAGE_SIZE_PREFERENCE_SLOT, '20')) || 20);
+    setPageSize(
+      Number(getStoredPreference(PAGE_SIZE_PREFERENCE_SLOT, DEFAULT_PAGE_SIZE)) ||
+        Number(DEFAULT_PAGE_SIZE),
+    );
   }, []);
 
   useEffect(() => {

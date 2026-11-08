@@ -12,6 +12,9 @@ describe('JSON body limit routing', () => {
     '/v1/hr/import-runs',
     '/v1/terminal/sync/batches',
     '/v1/terminal/sync/batches/file?x=1',
+    // Express routes trailing slashes and other casing to the same handler.
+    '/v1/hr/import-runs/',
+    '/V1/Terminal/Sync/Batches',
   ])('uses the large limit for %s', (url) => {
     const r = req(url, 'Application/JSON; charset=utf-8');
     expect(matchesLargeJsonBody(r)).toBe(true);

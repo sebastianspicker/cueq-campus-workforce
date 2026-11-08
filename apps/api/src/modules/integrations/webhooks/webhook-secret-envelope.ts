@@ -94,7 +94,9 @@ export function decryptWebhookSigningSecret(
       throw new WebhookSecretEnvelopeError();
     }
 
-    const decipher = createDecipheriv('aes-256-gcm', encryptionKey(env), iv);
+    const decipher = createDecipheriv('aes-256-gcm', encryptionKey(env), iv, {
+      authTagLength: AES_256_GCM_TAG_BYTES,
+    });
     decipher.setAAD(Buffer.from(endpointId, 'utf8'));
     decipher.setAuthTag(tag);
     return Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString('utf8');

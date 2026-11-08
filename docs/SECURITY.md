@@ -116,8 +116,9 @@ of sending an unsigned request.
 
 Targets must use a supported protocol and may not contain embedded credentials.
 Local and private addresses are rejected by default. Enabling
-`WEBHOOK_ALLOW_PRIVATE_TARGETS=true` is intended for isolated testing and needs
-a separate outbound-network review in any deployment. DNS and egress policy
+`WEBHOOK_ALLOW_PRIVATE_TARGETS=true` only relaxes registration checks; every
+delivery still resolves the target and refuses non-public addresses, so private
+receivers cannot be reached. DNS and egress policy
 must still protect against address changes between validation and delivery.
 
 Follow [the operations procedure](OPERATIONS.md) when rotating webhook keys.

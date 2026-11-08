@@ -3,6 +3,9 @@ import { ForbiddenException } from '@nestjs/common';
 import { AbsenceType, Role } from '@cueq/database';
 import type { AuthenticatedIdentity } from '../../platform/auth/auth.types.js';
 
+/** Roles whose hours are tracked: time accounts, closing checks, rosters and absence headcounts. */
+export const TIME_TRACKED_ROLES: Role[] = [Role.EMPLOYEE, Role.SHIFT_PLANNER];
+
 /** Roles allowed to perform privileged cross-person HR operations. */
 export const HR_LIKE_ROLES = new Set<Role>([Role.HR, Role.ADMIN]);
 

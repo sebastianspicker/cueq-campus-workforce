@@ -87,8 +87,12 @@ export async function upsertWorkflowPolicy(
     );
   }
 
-  const activeFrom = payload.activeFrom ? new Date(payload.activeFrom) : new Date();
   const now = new Date();
+  const activeFrom = payload.activeFrom ? new Date(payload.activeFrom) : now;
+  // Readers take the newest open row immediately; scheduled activation is not supported.
+  if (activeFrom > now) {
+    throw new BadRequestException('activeFrom must not be in the future.');
+  }
 
   return prisma.$transaction(async (tx) => {
     await lockPolicyWritesExclusive(tx, WORKFLOW_ROUTING_LOCK_SCOPE);

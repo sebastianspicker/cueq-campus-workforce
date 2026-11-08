@@ -52,40 +52,47 @@ export const WorkflowInstanceSchema = z.object({
 });
 export type WorkflowInstance = z.infer<typeof WorkflowInstanceSchema>;
 
+/** Decision fields and rules shared by the HTTP body and the domain command, so they cannot drift. */
+const workflowDecisionFields = {
+  assignmentId: IdSchema.optional(),
+  action: WorkflowActionSchema.optional(),
+  decision: z.enum(['APPROVED', 'REJECTED']).optional(),
+  reason: z.string().max(1000).optional(),
+  delegateToId: IdSchema.optional(),
+};
+
+function refineWorkflowDecision(
+  value: { action?: string; decision?: string; delegateToId?: string },
+  ctx: z.RefinementCtx,
+) {
+  if (!value.action && !value.decision) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'action or decision is required',
+      path: ['action'],
+    });
+  }
+
+  if (value.action && value.decision) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'action and decision cannot be provided together',
+      path: ['decision'],
+    });
+  }
+
+  if (value.action === 'DELEGATE' && !value.delegateToId) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'delegateToId is required for DELEGATE action',
+      path: ['delegateToId'],
+    });
+  }
+}
+
 export const WorkflowDecisionCommandSchema = z
-  .object({
-    workflowId: IdSchema,
-    assignmentId: IdSchema.optional(),
-    action: WorkflowActionSchema.optional(),
-    decision: z.enum(['APPROVED', 'REJECTED']).optional(),
-    reason: z.string().max(1000).optional(),
-    delegateToId: IdSchema.optional(),
-  })
-  .superRefine((value, ctx) => {
-    if (!value.action && !value.decision) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'action or decision is required',
-        path: ['action'],
-      });
-    }
-
-    if (value.action && value.decision) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'action and decision cannot be provided together',
-        path: ['decision'],
-      });
-    }
-
-    if (value.action === 'DELEGATE' && !value.delegateToId) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'delegateToId is required for DELEGATE action',
-        path: ['delegateToId'],
-      });
-    }
-  });
+  .object({ workflowId: IdSchema, ...workflowDecisionFields })
+  .superRefine(refineWorkflowDecision);
 export type WorkflowDecisionCommand = z.infer<typeof WorkflowDecisionCommandSchema>;
 
 export const WorkflowInboxQuerySchema = CursorQuerySchema.extend({
@@ -208,43 +215,9 @@ export const UpdateWorkflowDelegationRuleSchema = z
   });
 export type UpdateWorkflowDelegationRule = z.infer<typeof UpdateWorkflowDelegationRuleSchema>;
 
-/** @alias Backward-compatible name for legacy call sites. */
-export const WorkflowDecisionSchema = WorkflowDecisionCommandSchema;
-export type WorkflowDecision = WorkflowDecisionCommand;
-
 export const WorkflowDecisionBodySchema = z
-  .object({
-    assignmentId: IdSchema.optional(),
-    action: WorkflowActionSchema.optional(),
-    decision: z.enum(['APPROVED', 'REJECTED']).optional(),
-    reason: z.string().max(1000).optional(),
-    delegateToId: IdSchema.optional(),
-  })
-  .superRefine((value, ctx) => {
-    if (!value.action && !value.decision) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'action or decision is required',
-        path: ['action'],
-      });
-    }
-
-    if (value.action && value.decision) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'action and decision cannot be provided together',
-        path: ['decision'],
-      });
-    }
-
-    if (value.action === 'DELEGATE' && !value.delegateToId) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'delegateToId is required for DELEGATE action',
-        path: ['delegateToId'],
-      });
-    }
-  });
+  .object(workflowDecisionFields)
+  .superRefine(refineWorkflowDecision);
 export type WorkflowDecisionBody = z.infer<typeof WorkflowDecisionBodySchema>;
 
 export const WorkflowDelegationQuerySchema = z.object({

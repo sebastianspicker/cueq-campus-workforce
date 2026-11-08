@@ -150,6 +150,8 @@ describe('reporting aggregation', () => {
       ],
     });
     expect(rawQueries[0]?.sql).toContain('COUNT(DISTINCT assignment."personId")');
+    // Headcount uses the same time-tracked population as time accounts and closing.
+    expect(rawQueries[0]?.values).toContainEqual(['EMPLOYEE', 'SHIFT_PLANNER']);
     expect(rawQueries[1]?.sql).toContain('term."assignmentId" = absence."assignmentId"');
     expect(rawQueries[1]?.sql).toContain('other_term."organizationUnitId" <>');
     expect(rawQueries[1]?.sql).toContain(`absence."status"::text = 'APPROVED'`);

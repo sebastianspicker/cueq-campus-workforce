@@ -255,7 +255,10 @@ export class ClosingCorrectionHelper {
         'Post-close booking corrections require a REVIEW or EXPORTED period.',
       );
     }
-    if (startTime < period.periodStart || endTime > period.periodEnd) {
+    if (
+      startTime < period.periodStart ||
+      endTime > inclusivePeriodEndToExclusive(period.periodEnd)
+    ) {
       throw new BadRequestException(
         'Correction booking interval must be inside the closing period time range.',
       );

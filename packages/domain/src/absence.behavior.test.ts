@@ -131,4 +131,23 @@ describe('calendar parsing contracts exported by the domain root', () => {
     expect(ledger.carriedOverDays).toBe(0);
     expect(ledger.remainingDays).toBe(ledger.entitlementDays);
   });
+
+  it('prorates entry and exit only when their own rule flag is set', () => {
+    const entitlement = (proRataOnEntry: boolean, proRataOnExit: boolean) =>
+      calculateLeaveLedger(
+        {
+          year: 2026,
+          asOfDate: '2026-01-01',
+          workTimeModelWeeklyHours: 39.83,
+          employmentStartDate: '2026-04-01',
+          employmentEndDate: '2026-06-30',
+          annualLeaveUsage: [],
+        },
+        { ...DEFAULT_LEAVE_RULE, proRataOnEntry, proRataOnExit },
+      ).entitlementDays;
+    expect(entitlement(true, true)).toBe(7.5);
+    expect(entitlement(true, false)).toBe(22.5);
+    expect(entitlement(false, true)).toBe(15);
+    expect(entitlement(false, false)).toBe(30);
+  });
 });

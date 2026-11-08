@@ -175,4 +175,51 @@ describe('post-close correction request', () => {
       message: 'Post-close correction is only valid for EXPORTED periods.',
     });
   });
+
+  it('accepts a correction booking that ends exactly at the exclusive month end', async () => {
+    const passedRangeCheck = new Error('range check passed');
+    const tx = {
+      closingPeriod: {
+        findUnique: vi.fn(async () => ({
+          id: 'period-1',
+          status: ClosingStatus.REVIEW,
+          periodStart: new Date('2026-10-01T00:00:00.000Z'),
+          periodEnd: new Date('2026-10-31T23:59:59.000Z'),
+        })),
+      },
+      workflowInstance: { findUnique: vi.fn(async () => Promise.reject(passedRangeCheck)) },
+      timeType: { findUnique: vi.fn(async () => null) },
+    };
+    const helper = new ClosingCorrectionHelper(
+      {} as PrismaService,
+      {} as PersonHelper,
+      { resolveInterval: vi.fn(async () => null) } as unknown as AssignmentHelper,
+      {} as AuditHelper,
+      {} as WorkflowRuntimePort,
+    );
+    const validate = (
+      helper as unknown as {
+        validateCorrectionRequest: (...args: unknown[]) => Promise<unknown>;
+      }
+    ).validateCorrectionRequest.bind(helper);
+
+    await expect(
+      validate(
+        tx,
+        'period-1',
+        { workflowId: 'w', personId: 'p', timeTypeId: 't' },
+        new Date('2026-10-31T16:00:00.000Z'),
+        new Date('2026-11-01T00:00:00.000Z'),
+      ),
+    ).rejects.toBe(passedRangeCheck);
+    await expect(
+      validate(
+        tx,
+        'period-1',
+        { workflowId: 'w', personId: 'p', timeTypeId: 't' },
+        new Date('2026-10-31T16:00:00.000Z'),
+        new Date('2026-11-01T00:00:01.000Z'),
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
 });

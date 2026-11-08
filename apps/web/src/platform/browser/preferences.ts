@@ -2,6 +2,8 @@
 
 export const THEME_PREFERENCE_SLOT = 'cq-theme';
 export const PAGE_SIZE_PREFERENCE_SLOT = 'cq-page-size';
+/** List page size when Settings was never saved; matches the API's default `limit`. */
+export const DEFAULT_PAGE_SIZE = '50';
 
 export type ThemePreference = 'system' | 'light' | 'dark';
 
