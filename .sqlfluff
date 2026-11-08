@@ -1,3 +1,5 @@
 [sqlfluff]
 dialect = postgres
 large_file_skip_byte_limit = 0
+# Prisma generates migrations with quoted identifiers and its own layout; applied migrations are immutable.
+exclude_rules = RF06, LT01, LT02, LT05
